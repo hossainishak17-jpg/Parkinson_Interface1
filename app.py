@@ -46,39 +46,149 @@ st.set_page_config(
     layout="wide"
 )
 
+
+# =========================================================
+# WHITE BACKGROUND + BLACK TEXT
+# =========================================================
+
 st.markdown("""
 <style>
+
+/* Main page */
 .stApp {
-    background-color: #0b1220;
-    color: #e5e7eb;
+    background-color: #ffffff !important;
+    color: #000000 !important;
 }
 
+/* Main content */
+.main .block-container {
+    background-color: #ffffff !important;
+}
+
+/* Sidebar */
 section[data-testid="stSidebar"] {
-    background-color: #111c2e;
+    background-color: #f2f2f2 !important;
 }
 
-h1, h2, h3 {
-    color: #f1f5f9;
+section[data-testid="stSidebar"] * {
+    color: #000000 !important;
 }
 
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+    color: #000000 !important;
+}
+
+/* General text */
+p, label, span, li {
+    color: #000000;
+}
+
+/* Metrics */
 div[data-testid="stMetric"] {
-    background-color: #17243a;
-    border: 1px solid #263750;
-    padding: 12px;
-    border-radius: 9px;
+    background-color: #f5f5f5 !important;
+    border: 1px solid #cccccc !important;
+    padding: 14px;
+    border-radius: 8px;
 }
 
+div[data-testid="stMetricLabel"],
+div[data-testid="stMetricValue"],
+div[data-testid="stMetricDelta"] {
+    color: #000000 !important;
+}
+
+/* Buttons */
 .stButton > button {
-    background-color: #2563eb;
-    color: white;
-    border: none;
-    border-radius: 7px;
+    background-color: #e8e8e8 !important;
+    color: #000000 !important;
+    border: 1px solid #888888 !important;
+    border-radius: 6px;
+    font-weight: 600;
 }
 
 .stButton > button:hover {
-    background-color: #1d4ed8;
-    color: white;
+    background-color: #d5d5d5 !important;
+    color: #000000 !important;
+    border: 1px solid #333333 !important;
 }
+
+/* Download button */
+.stDownloadButton > button {
+    background-color: #eeeeee !important;
+    color: #000000 !important;
+    border: 1px solid #888888 !important;
+}
+
+/* Input fields */
+input, textarea {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #999999 !important;
+}
+
+/* Selectbox */
+div[data-baseweb="select"] {
+    background-color: #ffffff !important;
+}
+
+div[data-baseweb="select"] * {
+    color: #000000 !important;
+}
+
+/* File uploader */
+div[data-testid="stFileUploader"] {
+    background-color: #f7f7f7 !important;
+    border: 1px solid #cccccc !important;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+div[data-testid="stFileUploader"] * {
+    color: #000000 !important;
+}
+
+/* Dataframe */
+div[data-testid="stDataFrame"] {
+    background-color: #ffffff !important;
+}
+
+/* Expander */
+div[data-testid="stExpander"] {
+    background-color: #f7f7f7 !important;
+    border: 1px solid #cccccc !important;
+}
+
+div[data-testid="stExpander"] * {
+    color: #000000;
+}
+
+/* Radio buttons */
+div[role="radiogroup"] label {
+    color: #000000 !important;
+}
+
+/* Slider */
+div[data-testid="stSlider"] {
+    color: #000000 !important;
+}
+
+/* Alerts */
+div[data-testid="stAlert"] {
+    background-color: #f5f5f5 !important;
+    color: #000000 !important;
+}
+
+/* Captions */
+.stCaption, [data-testid="stCaptionContainer"] {
+    color: #333333 !important;
+}
+
+/* Divider */
+hr {
+    border-color: #cccccc !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -98,7 +208,9 @@ DEFAULTS = {
     "models": {},
     "results": None,
     "trained": False,
-    "training_error": None
+    "training_error": None,
+    "shap_result": None,
+    "shap_model": None
 }
 
 for key, value in DEFAULTS.items():
@@ -112,10 +224,47 @@ def reset_training():
     st.session_state.X_test = None
     st.session_state.y_train = None
     st.session_state.y_test = None
+
     st.session_state.models = {}
     st.session_state.results = None
+
     st.session_state.trained = False
     st.session_state.training_error = None
+
+    st.session_state.shap_result = None
+    st.session_state.shap_model = None
+
+
+# =========================================================
+# DATASET COLUMN NAMES
+# =========================================================
+
+UCI_COLUMNS = [
+    "name",
+    "MDVP:Fo(Hz)",
+    "MDVP:Fhi(Hz)",
+    "MDVP:Flo(Hz)",
+    "MDVP:Jitter(%)",
+    "MDVP:Jitter(Abs)",
+    "MDVP:RAP",
+    "MDVP:PPQ",
+    "Jitter:DDP",
+    "MDVP:Shimmer",
+    "MDVP:Shimmer(dB)",
+    "Shimmer:APQ3",
+    "Shimmer:APQ5",
+    "MDVP:APQ",
+    "Shimmer:DDA",
+    "NHR",
+    "HNR",
+    "status",
+    "RPDE",
+    "DFA",
+    "spread1",
+    "spread2",
+    "D2",
+    "PPE"
+]
 
 
 # =========================================================
@@ -128,10 +277,14 @@ def load_dataset(uploaded_file):
 
         uploaded_file.seek(0)
 
-        if uploaded_file.name.lower().endswith(".csv"):
+        filename = uploaded_file.name.lower()
+
+        if filename.endswith(".csv"):
+
             df = pd.read_csv(uploaded_file)
 
         else:
+
             df = pd.read_csv(
                 uploaded_file,
                 header=None
@@ -143,53 +296,35 @@ def load_dataset(uploaded_file):
 
     elif os.path.exists("parkinsons.data"):
 
-        df = pd.read_csv("parkinsons.data")
+        df = pd.read_csv(
+            "parkinsons.data",
+            header=None
+        )
 
     else:
         return None
 
     df.columns = [
-        str(col).strip().strip('"').strip("'")
-        for col in df.columns
+        str(c).strip().strip('"').strip("'")
+        for c in df.columns
     ]
 
-    # Standard UCI Parkinson's dataset without header
-    if "status" not in [c.lower() for c in df.columns]:
+    lower_columns = [
+        c.lower() for c in df.columns
+    ]
+
+    # Headerless UCI dataset
+    if "status" not in lower_columns:
 
         if df.shape[1] == 24:
 
-            df.columns = [
-                "name",
-                "MDVP:Fo(Hz)",
-                "MDVP:Fhi(Hz)",
-                "MDVP:Flo(Hz)",
-                "MDVP:Jitter(%)",
-                "MDVP:Jitter(Abs)",
-                "MDVP:RAP",
-                "MDVP:PPQ",
-                "Jitter:DDP",
-                "MDVP:Shimmer",
-                "MDVP:Shimmer(dB)",
-                "Shimmer:APQ3",
-                "Shimmer:APQ5",
-                "MDVP:APQ",
-                "Shimmer:DDA",
-                "NHR",
-                "HNR",
-                "status",
-                "RPDE",
-                "DFA",
-                "spread1",
-                "spread2",
-                "D2",
-                "PPE"
-            ]
+            df.columns = UCI_COLUMNS
 
     return df
 
 
 # =========================================================
-# DATA PREPROCESSING
+# PREPARE DATASET
 # =========================================================
 
 def prepare_dataset(df):
@@ -210,6 +345,7 @@ def prepare_dataset(df):
     )
 
     if target_col is None:
+
         raise ValueError(
             "Target column 'status' was not found."
         )
@@ -225,11 +361,13 @@ def prepare_dataset(df):
     y = y.loc[valid_rows].astype(int)
 
     if not set(y.unique()).issubset({0, 1}):
+
         raise ValueError(
             "Status must contain only 0 and 1."
         )
 
     if set(y.unique()) != {0, 1}:
+
         raise ValueError(
             "Both Healthy (0) and Parkinson's (1) classes are required."
         )
@@ -244,8 +382,8 @@ def prepare_dataset(df):
     }
 
     feature_columns = [
-        col for col in data.columns
-        if col.lower() not in excluded
+        c for c in data.columns
+        if c.lower() not in excluded
     ]
 
     X = data[feature_columns].copy()
@@ -268,11 +406,13 @@ def prepare_dataset(df):
     ]
 
     if X.empty:
+
         raise ValueError(
             "No valid numeric features found."
         )
 
     if y.value_counts().min() < 2:
+
         raise ValueError(
             "Each class needs at least two records."
         )
@@ -292,6 +432,7 @@ def create_models(minority_count, train_count):
     )
 
     if cv_splits < 2:
+
         raise ValueError(
             "Not enough samples for Stacking."
         )
@@ -425,7 +566,7 @@ def create_models(minority_count, train_count):
 
 
 # =========================================================
-# PROBABILITY
+# GET POSITIVE CLASS PROBABILITY
 # =========================================================
 
 def get_probability(model, X):
@@ -465,13 +606,14 @@ def get_probability(model, X):
                 )
 
     except Exception:
+
         return None
 
     return None
 
 
 # =========================================================
-# EVALUATION METRICS
+# METRICS
 # =========================================================
 
 def calculate_metrics(model, X_test, y_test):
@@ -491,10 +633,12 @@ def calculate_metrics(model, X_test, y_test):
     ):
 
         try:
+
             auc = roc_auc_score(
                 y_test,
                 probabilities
             )
+
         except Exception:
             pass
 
@@ -595,7 +739,7 @@ def train_all_models(
 
 
 # =========================================================
-# TESTING CSV PREPARATION
+# TESTING DATA PREPARATION
 # =========================================================
 
 def prepare_testing_csv(df, feature_names):
@@ -624,6 +768,20 @@ def prepare_testing_csv(df, feature_names):
             errors="coerce"
         )
 
+        if actual_status.isna().any():
+
+            raise ValueError(
+                "Testing status contains missing or invalid labels."
+            )
+
+        actual_status = actual_status.astype(int)
+
+        if not set(actual_status.unique()).issubset({0, 1}):
+
+            raise ValueError(
+                "Testing status must contain only 0 and 1."
+            )
+
     ignored = {
         "status",
         "name",
@@ -646,9 +804,9 @@ def prepare_testing_csv(df, feature_names):
     ]
 
     if missing:
+
         raise ValueError(
-            "Missing features: "
-            + ", ".join(missing)
+            "Missing features: " + ", ".join(missing)
         )
 
     feature_data = feature_data[
@@ -672,7 +830,7 @@ def prepare_testing_csv(df, feature_names):
 
 
 # =========================================================
-# DOWNLOAD
+# DOWNLOAD CSV
 # =========================================================
 
 def download_csv(df, filename, key):
@@ -690,7 +848,9 @@ def download_csv(df, filename, key):
 # SIDEBAR
 # =========================================================
 
-st.sidebar.title("Parkinson's Classification")
+st.sidebar.title(
+    "Parkinson's Classification"
+)
 
 page = st.sidebar.radio(
     "Navigation",
@@ -716,15 +876,9 @@ uploaded_dataset = st.sidebar.file_uploader(
 
 try:
 
-    if uploaded_dataset is not None:
-
-        raw_data = load_dataset(
-            uploaded_dataset
-        )
-
-    else:
-
-        raw_data = load_dataset(None)
+    raw_data = load_dataset(
+        uploaded_dataset
+    )
 
     if raw_data is None:
 
@@ -742,14 +896,12 @@ try:
         ).values.tobytes()
     ).hexdigest()
 
-    if (
-        st.session_state.data_hash
-        != current_hash
-    ):
+    if st.session_state.data_hash != current_hash:
 
         X, y = prepare_dataset(raw_data)
 
         st.session_state.data_hash = current_hash
+
         st.session_state.X = X.copy()
         st.session_state.y = y.copy()
 
@@ -798,9 +950,7 @@ if st.sidebar.button(
             stratify=y
         )
 
-        with st.spinner(
-            "Training models..."
-        ):
+        with st.spinner("Training all models..."):
 
             models, results = train_all_models(
                 X_train,
@@ -811,6 +961,7 @@ if st.sidebar.button(
 
         st.session_state.X_train = X_train
         st.session_state.X_test = X_test
+
         st.session_state.y_train = y_train
         st.session_state.y_test = y_test
 
@@ -819,6 +970,9 @@ if st.sidebar.button(
 
         st.session_state.trained = True
         st.session_state.training_error = None
+
+        st.session_state.shap_result = None
+        st.session_state.shap_model = None
 
         st.sidebar.success(
             "Training completed."
@@ -897,6 +1051,19 @@ if page == "Dashboard":
     )
 
     ax.set_ylabel("Recordings")
+    ax.set_xlabel("Class")
+    ax.set_title("Dataset Class Distribution")
+
+    ax.tick_params(
+        colors="black"
+    )
+
+    ax.xaxis.label.set_color("black")
+    ax.yaxis.label.set_color("black")
+    ax.title.set_color("black")
+
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
 
     st.pyplot(fig)
     plt.close(fig)
@@ -937,8 +1104,8 @@ elif page == "Prediction":
     st.subheader("Upload Testing Sets")
 
     st.caption(
-        "Upload 4 or 5 separate testing CSV files. "
-        "All 8 models will predict every uploaded testing set."
+        "Upload up to 5 testing CSV files. "
+        "All 8 models will predict each uploaded dataset."
     )
 
     testing_files = st.file_uploader(
@@ -979,7 +1146,7 @@ elif page == "Prediction":
                         )
 
                         st.write(
-                            f"Testing records: {len(X_external)}"
+                            f"Testing Records: {len(X_external)}"
                         )
 
                         model_outputs = []
@@ -1019,14 +1186,11 @@ elif page == "Prediction":
                                     "Parkinsons_Probability"
                                 ] = probabilities
 
-                            if (
-                                actual_status is not None
-                                and actual_status.notna().all()
-                            ):
+                            if actual_status is not None:
 
-                                actual = actual_status.astype(int)
+                                actual = actual_status.to_numpy()
 
-                                output["Actual_Status"] = actual.values
+                                output["Actual_Status"] = actual
 
                                 output["Actual_Label"] = [
                                     "Parkinson's" if p == 1
@@ -1035,7 +1199,7 @@ elif page == "Prediction":
                                 ]
 
                                 output["Correct"] = (
-                                    predictions == actual.values
+                                    predictions == actual
                                 )
 
                                 metrics = calculate_metrics(
@@ -1045,7 +1209,7 @@ elif page == "Prediction":
                                 )
 
                                 st.write(
-                                    f"**{model_name} - Testing Metrics**"
+                                    f"**{model_name}**"
                                 )
 
                                 m1, m2, m3 = st.columns(3)
@@ -1077,22 +1241,26 @@ elif page == "Prediction":
                             use_container_width=True
                         )
 
+                        safe_name = os.path.splitext(
+                            testing_file.name
+                        )[0]
+
                         download_csv(
                             combined_output,
-                            f"{os.path.splitext(testing_file.name)[0]}_predictions.csv",
+                            f"{safe_name}_predictions.csv",
                             f"prediction_download_{file_index}"
                         )
 
                     except Exception as e:
 
                         st.error(
-                            f"Testing error: {e}"
+                            f"Testing Error: {e}"
                         )
 
     else:
 
         st.info(
-            "Upload your testing CSV files to generate predictions."
+            "Upload testing CSV files to generate predictions."
         )
 
 
@@ -1188,11 +1356,26 @@ elif page == "Model Comparison":
     )
 
     ax.set_ylabel(selected_metric)
-    ax.set_ylim(0, 1.05)
+    ax.set_xlabel("Models")
+    ax.set_title(f"Model Comparison - {selected_metric}")
+
     ax.tick_params(
         axis="x",
-        rotation=35
+        rotation=35,
+        colors="black"
     )
+
+    ax.tick_params(
+        axis="y",
+        colors="black"
+    )
+
+    ax.yaxis.label.set_color("black")
+    ax.xaxis.label.set_color("black")
+    ax.title.set_color("black")
+
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
 
     st.pyplot(fig)
     plt.close(fig)
@@ -1242,7 +1425,8 @@ elif page == "SHAP Explainability":
     )
 
     st.caption(
-        "SHAP explains how voice features influence the selected model's output."
+        "SHAP explains the contribution of each voice feature "
+        "to the selected model's output."
     )
 
     if st.button("Calculate SHAP Values"):
@@ -1251,12 +1435,16 @@ elif page == "SHAP Explainability":
 
             import shap
 
-            model = st.session_state.models[selected_name]
+            model = st.session_state.models[
+                selected_name
+            ]
 
             X_train = st.session_state.X_train
             X_test = st.session_state.X_test
 
-            features = list(X_train.columns)
+            features = list(
+                X_train.columns
+            )
 
             background_df = X_train.sample(
                 min(20, len(X_train)),
@@ -1277,7 +1465,10 @@ elif page == "SHAP Explainability":
 
             def prediction_function(values):
 
-                values = np.asarray(values)
+                values = np.asarray(
+                    values,
+                    dtype=float
+                )
 
                 input_df = pd.DataFrame(
                     values,
@@ -1299,11 +1490,32 @@ elif page == "SHAP Explainability":
                             classes.index(1)
                         ]
 
+                if hasattr(model, "decision_function"):
+
+                    scores = np.asarray(
+                        model.decision_function(input_df)
+                    )
+
+                    if scores.ndim == 1:
+
+                        scores = np.clip(
+                            scores,
+                            -500,
+                            500
+                        )
+
+                        return 1 / (
+                            1 + np.exp(-scores)
+                        )
+
+                # Hard Voting: explain predicted class output
                 return model.predict(
                     input_df
                 ).astype(float)
 
-            with st.spinner("Calculating SHAP values..."):
+            with st.spinner(
+                "Calculating SHAP values..."
+            ):
 
                 explainer = shap.KernelExplainer(
                     prediction_function,
@@ -1315,12 +1527,11 @@ elif page == "SHAP Explainability":
                     nsamples=100
                 )
 
+            # SHAP output compatibility
             if isinstance(raw_values, list):
 
                 shap_values = np.asarray(
-                    raw_values[1]
-                    if len(raw_values) > 1
-                    else raw_values[0]
+                    raw_values[-1]
                 )
 
             else:
@@ -1339,6 +1550,10 @@ elif page == "SHAP Explainability":
 
                         shap_values = shap_values[1]
 
+            shap_values = np.squeeze(
+                shap_values
+            )
+
             if shap_values.ndim == 1:
 
                 shap_values = shap_values.reshape(
@@ -1346,13 +1561,12 @@ elif page == "SHAP Explainability":
                     -1
                 )
 
-            if shap_values.shape[1] != len(features):
+            if shap_values.shape != explain_data.shape:
 
-                st.error(
-                    "SHAP output does not match the feature columns."
+                raise ValueError(
+                    f"Unexpected SHAP shape: {shap_values.shape}. "
+                    f"Expected: {explain_data.shape}"
                 )
-
-                st.stop()
 
             importance = np.abs(
                 shap_values
@@ -1369,65 +1583,13 @@ elif page == "SHAP Explainability":
                 ascending=False
             )
 
-            st.subheader(
-                f"{selected_name} - Feature Importance"
-            )
-
-            top_n = st.slider(
-                "Number of features",
-                min_value=1,
-                max_value=len(features),
-                value=min(15, len(features))
-            )
-
-            top_features = importance_df.head(
-                top_n
-            )
-
-            fig, ax = plt.subplots(figsize=(9, 5))
-
-            ax.barh(
-                top_features["Feature"][::-1],
-                top_features["Mean Absolute SHAP"][::-1]
-            )
-
-            ax.set_xlabel(
-                "Mean Absolute SHAP Value"
-            )
-
-            st.pyplot(fig)
-            plt.close(fig)
-
-            st.subheader("SHAP Summary Plot")
-
-            fig = plt.figure(figsize=(9, 5))
-
-            shap.summary_plot(
+            st.session_state.shap_result = (
                 shap_values,
                 explain_data,
-                feature_names=features,
-                show=False
+                importance_df
             )
 
-            st.pyplot(
-                fig,
-                clear_figure=True
-            )
-
-            plt.close(fig)
-
-            st.subheader("Feature Importance Table")
-
-            st.dataframe(
-                importance_df,
-                use_container_width=True
-            )
-
-            download_csv(
-                importance_df,
-                "shap_feature_importance.csv",
-                "shap_download"
-            )
+            st.session_state.shap_model = selected_name
 
         except ImportError:
 
@@ -1440,6 +1602,113 @@ elif page == "SHAP Explainability":
             st.error(
                 f"SHAP Error: {e}"
             )
+
+    if (
+        st.session_state.shap_result is not None
+        and st.session_state.shap_model == selected_name
+    ):
+
+        shap_values, explain_data, importance_df = (
+            st.session_state.shap_result
+        )
+
+        st.subheader(
+            f"{selected_name} - Feature Importance"
+        )
+
+        top_n = st.slider(
+            "Number of Features",
+            min_value=1,
+            max_value=len(importance_df),
+            value=min(15, len(importance_df)),
+            key="shap_top_n"
+        )
+
+        top_features = importance_df.head(
+            top_n
+        )
+
+        fig, ax = plt.subplots(figsize=(9, 5))
+
+        ax.barh(
+            top_features["Feature"][::-1],
+            top_features["Mean Absolute SHAP"][::-1]
+        )
+
+        ax.set_xlabel(
+            "Mean Absolute SHAP Value"
+        )
+
+        ax.set_title(
+            "SHAP Feature Importance"
+        )
+
+        ax.tick_params(colors="black")
+
+        ax.xaxis.label.set_color("black")
+        ax.title.set_color("black")
+
+        fig.patch.set_facecolor("white")
+        ax.set_facecolor("white")
+
+        st.pyplot(fig)
+        plt.close(fig)
+
+        st.subheader("SHAP Summary Plot")
+
+        try:
+
+            shap.summary_plot(
+                shap_values,
+                explain_data,
+                feature_names=list(
+                    st.session_state.X_train.columns
+                ),
+                show=False
+            )
+
+            fig = plt.gcf()
+
+            fig.patch.set_facecolor("white")
+
+            for ax in fig.axes:
+
+                ax.set_facecolor("white")
+
+                ax.tick_params(
+                    colors="black"
+                )
+
+                ax.xaxis.label.set_color("black")
+                ax.yaxis.label.set_color("black")
+
+                ax.title.set_color("black")
+
+            st.pyplot(
+                fig,
+                clear_figure=True
+            )
+
+            plt.close(fig)
+
+        except Exception as e:
+
+            st.warning(
+                f"Summary plot unavailable: {e}"
+            )
+
+        st.subheader("Feature Importance Table")
+
+        st.dataframe(
+            importance_df,
+            use_container_width=True
+        )
+
+        download_csv(
+            importance_df,
+            "shap_feature_importance.csv",
+            "shap_download"
+        )
 
 
 # =========================================================
@@ -1525,7 +1794,10 @@ elif page == "Model Evaluation":
 
     fig, ax = plt.subplots(figsize=(5, 4))
 
-    ax.imshow(cm)
+    ax.imshow(
+        cm,
+        cmap="Blues"
+    )
 
     ax.set_xticks(
         [0, 1],
@@ -1539,6 +1811,13 @@ elif page == "Model Evaluation":
 
     ax.set_xlabel("Predicted")
     ax.set_ylabel("Actual")
+    ax.set_title("Confusion Matrix")
+
+    ax.tick_params(colors="black")
+
+    ax.xaxis.label.set_color("black")
+    ax.yaxis.label.set_color("black")
+    ax.title.set_color("black")
 
     for i in range(2):
 
@@ -1549,8 +1828,12 @@ elif page == "Model Evaluation":
                 i,
                 str(cm[i, j]),
                 ha="center",
-                va="center"
+                va="center",
+                color="black"
             )
+
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
 
     st.pyplot(fig)
     plt.close(fig)
@@ -1616,7 +1899,17 @@ elif page == "Model Evaluation":
             "True Positive Rate"
         )
 
+        ax.set_title("ROC Curve")
         ax.legend()
+
+        ax.tick_params(colors="black")
+
+        ax.xaxis.label.set_color("black")
+        ax.yaxis.label.set_color("black")
+        ax.title.set_color("black")
+
+        fig.patch.set_facecolor("white")
+        ax.set_facecolor("white")
 
         st.pyplot(fig)
         plt.close(fig)
@@ -1626,5 +1919,3 @@ elif page == "Model Evaluation":
         st.info(
             "ROC Curve is not available for this model."
         )
-
-
