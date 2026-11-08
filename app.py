@@ -1,32 +1,26 @@
 import os
-import warnings
 import hashlib
+import warnings
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
 from sklearn.base import clone
-from sklearn.model_selection import (
-    train_test_split,
-    GroupKFold,
-    StratifiedKFold
-)
+from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
-
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
-
 from sklearn.ensemble import (
     RandomForestClassifier,
     VotingClassifier,
     StackingClassifier
 )
-
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -43,177 +37,89 @@ warnings.filterwarnings("ignore")
 
 
 # =========================================================
-# 1. PAGE CONFIGURATION
+# PAGE CONFIG
 # =========================================================
 
 st.set_page_config(
     page_title="Parkinson's Voice Classification",
     page_icon="🧠",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
-
-
-# =========================================================
-# 2. PROFESSIONAL NAVY BLUE THEME
-# =========================================================
 
 st.markdown("""
 <style>
-
 .stApp {
-    background: linear-gradient(
-        135deg,
-        #071426 0%,
-        #101D35 55%,
-        #172943 100%
-    );
-    color: #F1F5F9;
+    background-color: #0b1220;
+    color: #e5e7eb;
 }
 
-[data-testid="stSidebar"] {
-    background: #091528;
-    border-right: 1px solid #263954;
+section[data-testid="stSidebar"] {
+    background-color: #111c2e;
 }
 
-h1, h2, h3, h4 {
-    color: #E2E8F0 !important;
-}
-
-p, label, span {
-    color: #CBD5E1;
-}
-
-.stButton > button {
-    background: #0284C7;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 10px 18px;
-    font-weight: 600;
-}
-
-.stButton > button:hover {
-    background: #0369A1;
-    color: white;
+h1, h2, h3 {
+    color: #f1f5f9;
 }
 
 div[data-testid="stMetric"] {
-    background: #14243D;
-    border: 1px solid #29415F;
-    padding: 16px;
-    border-radius: 10px;
+    background-color: #17243a;
+    border: 1px solid #263750;
+    padding: 12px;
+    border-radius: 9px;
 }
 
-div[data-testid="stMetricValue"] {
-    color: #38BDF8 !important;
+.stButton > button {
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 7px;
 }
 
-div[data-testid="stMetricLabel"] {
-    color: #94A3B8 !important;
-}
-
-.stTextInput input,
-.stNumberInput input {
-    background-color: #14243D;
+.stButton > button:hover {
+    background-color: #1d4ed8;
     color: white;
 }
-
-div[data-baseweb="select"] > div {
-    background-color: #14243D;
-}
-
-.stDownloadButton > button {
-    background: #075985;
-    color: white;
-    border-radius: 8px;
-}
-
-hr {
-    border-color: #334155;
-}
-
-[data-testid="stDataFrame"] {
-    border: 1px solid #29415F;
-    border-radius: 8px;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
 
 # =========================================================
-# 3. CONSTANTS
-# =========================================================
-
-MODEL_NAMES = [
-    "Logistic Regression",
-    "SVM",
-    "KNN",
-    "Decision Tree",
-    "Random Forest",
-    "Hard Voting",
-    "Soft Voting",
-    "Stacking"
-]
-
-CLASS_NAMES = {
-    0: "Healthy",
-    1: "Parkinson's"
-}
-
-METRIC_COLUMNS = [
-    "Accuracy",
-    "Precision",
-    "Recall",
-    "F1-Score",
-    "ROC-AUC",
-    "MCC"
-]
-
-
-# =========================================================
-# 4. SESSION STATE
+# SESSION STATE
 # =========================================================
 
 DEFAULTS = {
-    "models": {},
-    "metrics": None,
+    "data_hash": None,
+    "X": None,
+    "y": None,
     "X_train": None,
     "X_test": None,
     "y_train": None,
     "y_test": None,
+    "models": {},
+    "results": None,
     "trained": False,
-    "dataset_signature": None,
-    "latest_input": None,
-    "latest_results": None,
-    "latest_source": None,
-    "latest_shap": None,
-    "subject_metrics": None,
-    "subject_folds": None,
-    "subject_info": None
+    "training_error": None
 }
 
-
-def initialize_session():
-
-    for key, value in DEFAULTS.items():
-
-        if key not in st.session_state:
-            st.session_state[key] = value
-
-
-def reset_session():
-
-    for key, value in DEFAULTS.items():
+for key, value in DEFAULTS.items():
+    if key not in st.session_state:
         st.session_state[key] = value
 
 
-initialize_session()
+def reset_training():
+
+    st.session_state.X_train = None
+    st.session_state.X_test = None
+    st.session_state.y_train = None
+    st.session_state.y_test = None
+    st.session_state.models = {}
+    st.session_state.results = None
+    st.session_state.trained = False
+    st.session_state.training_error = None
 
 
 # =========================================================
-# 5. DATASET LOADING
+# LOAD DATASET
 # =========================================================
 
 def load_dataset(uploaded_file):
@@ -222,587 +128,377 @@ def load_dataset(uploaded_file):
 
         uploaded_file.seek(0)
 
-        return pd.read_csv(uploaded_file)
+        if uploaded_file.name.lower().endswith(".csv"):
+            df = pd.read_csv(uploaded_file)
 
-    folder = os.path.dirname(
-        os.path.abspath(__file__)
-    )
+        else:
+            df = pd.read_csv(
+                uploaded_file,
+                header=None
+            )
 
-    possible_files = [
-        "parkinsons.csv",
-        "parkinsons.data"
+    elif os.path.exists("parkinsons.csv"):
+
+        df = pd.read_csv("parkinsons.csv")
+
+    elif os.path.exists("parkinsons.data"):
+
+        df = pd.read_csv("parkinsons.data")
+
+    else:
+        return None
+
+    df.columns = [
+        str(col).strip().strip('"').strip("'")
+        for col in df.columns
     ]
 
-    for filename in possible_files:
+    # Standard UCI Parkinson's dataset without header
+    if "status" not in [c.lower() for c in df.columns]:
 
-        path = os.path.join(
-            folder,
-            filename
-        )
+        if df.shape[1] == 24:
 
-        if os.path.isfile(path):
+            df.columns = [
+                "name",
+                "MDVP:Fo(Hz)",
+                "MDVP:Fhi(Hz)",
+                "MDVP:Flo(Hz)",
+                "MDVP:Jitter(%)",
+                "MDVP:Jitter(Abs)",
+                "MDVP:RAP",
+                "MDVP:PPQ",
+                "Jitter:DDP",
+                "MDVP:Shimmer",
+                "MDVP:Shimmer(dB)",
+                "Shimmer:APQ3",
+                "Shimmer:APQ5",
+                "MDVP:APQ",
+                "Shimmer:DDA",
+                "NHR",
+                "HNR",
+                "status",
+                "RPDE",
+                "DFA",
+                "spread1",
+                "spread2",
+                "D2",
+                "PPE"
+            ]
 
-            return pd.read_csv(path)
-
-    return None
+    return df
 
 
 # =========================================================
-# 6. DATASET PREPARATION
+# DATA PREPROCESSING
 # =========================================================
 
-def prepare_dataset(data):
+def prepare_dataset(df):
 
-    df = data.copy()
+    data = df.copy()
 
-    df.columns = (
-        df.columns.astype(str).str.strip()
+    data.columns = [
+        str(c).strip()
+        for c in data.columns
+    ]
+
+    target_col = next(
+        (
+            c for c in data.columns
+            if c.lower() == "status"
+        ),
+        None
     )
 
-    # Remove duplicate column names
-
-    if df.columns.duplicated().any():
-
+    if target_col is None:
         raise ValueError(
-            "Dataset contains duplicate column names."
+            "Target column 'status' was not found."
         )
-
-    # Target column
-
-    if "status" not in df.columns:
-
-        raise ValueError(
-            "Dataset must contain a 'status' column."
-        )
-
-    # Extract subject ID
-
-    if "subject_id" not in df.columns:
-
-        if "name" not in df.columns:
-
-            raise ValueError(
-                "Dataset must contain 'name' or 'subject_id'."
-            )
-
-        extracted = (
-            df["name"]
-            .astype(str)
-            .str.extract(
-                r"(S\d+)",
-                expand=False
-            )
-        )
-
-        df["subject_id"] = extracted
-
-    # Clean subject ID
-
-    df["subject_id"] = (
-        df["subject_id"]
-        .astype("string")
-        .str.strip()
-    )
-
-    df["subject_id"] = df["subject_id"].replace(
-        "",
-        pd.NA
-    )
-
-    # Target conversion
 
     y = pd.to_numeric(
-        df["status"],
+        data[target_col],
         errors="coerce"
     )
 
-    valid = y.isin([0, 1])
+    valid_rows = y.notna()
 
-    df = df.loc[valid].copy().reset_index(drop=True)
+    data = data.loc[valid_rows].copy()
+    y = y.loc[valid_rows].astype(int)
 
-    y = (
-        y.loc[valid]
-        .astype(int)
-        .reset_index(drop=True)
-    )
-
-    # Check subjects
-
-    if df["subject_id"].isna().any():
-
+    if not set(y.unique()).issubset({0, 1}):
         raise ValueError(
-            "Some subject IDs could not be extracted. "
-            "Check the name column or provide subject_id."
+            "Status must contain only 0 and 1."
         )
 
-    # Numerical voice features
+    if set(y.unique()) != {0, 1}:
+        raise ValueError(
+            "Both Healthy (0) and Parkinson's (1) classes are required."
+        )
 
-    excluded = [
-        "name",
+    excluded = {
         "status",
-        "subject_id"
+        "name",
+        "subject_id",
+        "subject",
+        "patient_id",
+        "id"
+    }
+
+    feature_columns = [
+        col for col in data.columns
+        if col.lower() not in excluded
     ]
 
-    features = []
+    X = data[feature_columns].copy()
 
-    for column in df.columns:
+    for col in X.columns:
 
-        if column in excluded:
-            continue
-
-        converted = pd.to_numeric(
-            df[column],
+        X[col] = pd.to_numeric(
+            X[col],
             errors="coerce"
         )
 
-        if converted.notna().any():
-
-            df[column] = converted
-
-            features.append(column)
-
-    if len(features) == 0:
-
-        raise ValueError(
-            "No numerical voice features found."
-        )
-
-    X = df[features].copy()
-
-    X = X.replace(
-        [np.inf, -np.inf],
-        np.nan
+    X = X.dropna(
+        axis=1,
+        how="all"
     )
 
-    # Completely empty columns are not usable
+    X = X.loc[
+        :,
+        ~X.columns.duplicated()
+    ]
 
-    empty_columns = X.columns[
-        X.isna().all()
-    ].tolist()
-
-    if empty_columns:
-
+    if X.empty:
         raise ValueError(
-            "Features contain no usable numeric values: "
-            + ", ".join(empty_columns)
+            "No valid numeric features found."
         )
 
-    if X.shape[0] < 10:
-
+    if y.value_counts().min() < 2:
         raise ValueError(
-            "Dataset contains too few valid records."
+            "Each class needs at least two records."
         )
 
-    if y.nunique() != 2:
-
-        raise ValueError(
-            "Dataset must contain both classes: "
-            "Healthy (0) and Parkinson's (1)."
-        )
-
-    if df["subject_id"].nunique() < 5:
-
-        raise ValueError(
-            "At least five unique subjects are required "
-            "for 5-fold GroupKFold evaluation."
-        )
-
-    return df, X, y, features
+    return X, y
 
 
 # =========================================================
-# 7. DATASET SIGNATURE
+# CREATE MODELS
 # =========================================================
 
-def get_dataset_signature(df):
+def create_models(minority_count, train_count):
 
-    hashed = pd.util.hash_pandas_object(
-        df,
-        index=True
-    ).values.tobytes()
-
-    digest = hashlib.sha256(
-        hashed
-    ).hexdigest()
-
-    return digest
-
-
-# =========================================================
-# 8. BASE MODELS
-# =========================================================
-
-def create_base_models(training_size):
-
-    k = max(
-        1,
-        min(5, training_size)
+    cv_splits = min(
+        5,
+        int(minority_count)
     )
+
+    if cv_splits < 2:
+        raise ValueError(
+            "Not enough samples for Stacking."
+        )
+
+    knn_neighbors = min(
+        3,
+        int(train_count)
+    )
+
+    base_models = [
+
+        (
+            "lr",
+            Pipeline([
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
+                (
+                    "model",
+                    LogisticRegression(
+                        max_iter=2000,
+                        random_state=42
+                    )
+                )
+            ])
+        ),
+
+        (
+            "svm",
+            Pipeline([
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
+                (
+                    "model",
+                    SVC(
+                        probability=True,
+                        random_state=42
+                    )
+                )
+            ])
+        ),
+
+        (
+            "knn",
+            Pipeline([
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
+                (
+                    "model",
+                    KNeighborsClassifier(
+                        n_neighbors=knn_neighbors
+                    )
+                )
+            ])
+        ),
+
+        (
+            "dt",
+            Pipeline([
+                ("imputer", SimpleImputer(strategy="median")),
+                (
+                    "model",
+                    DecisionTreeClassifier(
+                        random_state=42,
+                        class_weight="balanced"
+                    )
+                )
+            ])
+        ),
+
+        (
+            "rf",
+            Pipeline([
+                ("imputer", SimpleImputer(strategy="median")),
+                (
+                    "model",
+                    RandomForestClassifier(
+                        n_estimators=200,
+                        random_state=42,
+                        class_weight="balanced"
+                    )
+                )
+            ])
+        )
+    ]
 
     models = {
 
-        "Logistic Regression": Pipeline([
+        "Logistic Regression":
+            clone(base_models[0][1]),
 
-            ("imputer", SimpleImputer(
-                strategy="median"
-            )),
+        "SVM":
+            clone(base_models[1][1]),
 
-            ("scaler", StandardScaler()),
+        "KNN":
+            clone(base_models[2][1]),
 
-            ("model", LogisticRegression(
-                max_iter=2000,
-                random_state=42
-            ))
+        "Decision Tree":
+            clone(base_models[3][1]),
 
-        ]),
+        "Random Forest":
+            clone(base_models[4][1]),
 
-        "SVM": Pipeline([
+        "Hard Voting":
+            VotingClassifier(
+                estimators=base_models,
+                voting="hard"
+            ),
 
-            ("imputer", SimpleImputer(
-                strategy="median"
-            )),
+        "Soft Voting":
+            VotingClassifier(
+                estimators=base_models,
+                voting="soft"
+            ),
 
-            ("scaler", StandardScaler()),
-
-            ("model", SVC(
-                kernel="rbf",
-                probability=True,
-                random_state=42
-            ))
-
-        ]),
-
-        "KNN": Pipeline([
-
-            ("imputer", SimpleImputer(
-                strategy="median"
-            )),
-
-            ("scaler", StandardScaler()),
-
-            ("model", KNeighborsClassifier(
-                n_neighbors=k
-            ))
-
-        ]),
-
-        "Decision Tree": Pipeline([
-
-            ("imputer", SimpleImputer(
-                strategy="median"
-            )),
-
-            ("model", DecisionTreeClassifier(
-                random_state=42,
-                class_weight="balanced"
-            ))
-
-        ]),
-
-        "Random Forest": Pipeline([
-
-            ("imputer", SimpleImputer(
-                strategy="median"
-            )),
-
-            ("model", RandomForestClassifier(
-                n_estimators=200,
-                random_state=42,
-                n_jobs=1,
-                class_weight="balanced"
-            ))
-
-        ])
-
+        "Stacking":
+            StackingClassifier(
+                estimators=base_models,
+                final_estimator=LogisticRegression(
+                    max_iter=2000
+                ),
+                cv=StratifiedKFold(
+                    n_splits=cv_splits,
+                    shuffle=True,
+                    random_state=42
+                ),
+                stack_method="predict_proba"
+            )
     }
 
     return models
 
 
 # =========================================================
-# 9. ALL EIGHT MODELS
+# PROBABILITY
 # =========================================================
 
-def create_all_models(
-    training_size,
-    minority_count
-):
+def get_probability(model, X):
 
-    if minority_count < 2:
+    try:
 
-        raise ValueError(
-            "Not enough minority-class samples "
-            "for ensemble training."
-        )
+        if hasattr(model, "predict_proba"):
 
-    base_models = create_base_models(
-        training_size
-    )
+            probabilities = model.predict_proba(X)
 
-    estimators = [
+            classes = list(model.classes_)
 
-        (
-            name.replace(" ", "_"),
-            clone(model)
-        )
+            if 1 in classes:
 
-        for name, model in base_models.items()
+                return probabilities[
+                    :,
+                    classes.index(1)
+                ]
 
-    ]
+        if hasattr(model, "decision_function"):
 
-    cv_folds = min(
-        3,
-        minority_count
-    )
-
-    stacking_cv = StratifiedKFold(
-        n_splits=cv_folds,
-        shuffle=True,
-        random_state=42
-    )
-
-    all_models = dict(base_models)
-
-    all_models["Hard Voting"] = VotingClassifier(
-
-        estimators=estimators,
-
-        voting="hard",
-
-        n_jobs=1
-
-    )
-
-    all_models["Soft Voting"] = VotingClassifier(
-
-        estimators=estimators,
-
-        voting="soft",
-
-        n_jobs=1
-
-    )
-
-    all_models["Stacking"] = StackingClassifier(
-
-        estimators=estimators,
-
-        final_estimator=LogisticRegression(
-            max_iter=2000,
-            random_state=42
-        ),
-
-        cv=stacking_cv,
-
-        n_jobs=1
-
-    )
-
-    return all_models
-
-
-# =========================================================
-# 10. CLASS PROBABILITIES
-# =========================================================
-
-def get_model_probabilities(
-    model,
-    X_input,
-    model_name
-):
-
-    # Hard voting has no native predict_proba.
-
-    if model_name == "Hard Voting":
-
-        probabilities = []
-
-        for estimator in model.estimators_:
-
-            if not hasattr(
-                estimator,
-                "predict_proba"
-            ):
-                continue
-
-            prob = estimator.predict_proba(
-                X_input
-            )[0]
-
-            classes = list(
-                estimator.classes_
+            scores = np.asarray(
+                model.decision_function(X),
+                dtype=float
             )
 
-            if 0 in classes and 1 in classes:
+            if scores.ndim == 1:
 
-                probabilities.append([
+                scores = np.clip(
+                    scores,
+                    -500,
+                    500
+                )
 
-                    prob[classes.index(0)],
+                return 1 / (
+                    1 + np.exp(-scores)
+                )
 
-                    prob[classes.index(1)]
+    except Exception:
+        return None
 
-                ])
-
-        if not probabilities:
-
-            return None, "Unavailable"
-
-        average = np.mean(
-            probabilities,
-            axis=0
-        )
-
-        return (
-            average,
-            "Estimated average base-model probability"
-        )
-
-    if hasattr(model, "predict_proba"):
-
-        prob = model.predict_proba(
-            X_input
-        )[0]
-
-        classes = list(
-            model.classes_
-        )
-
-        if 0 in classes and 1 in classes:
-
-            result = np.array([
-
-                prob[classes.index(0)],
-
-                prob[classes.index(1)]
-
-            ])
-
-            return result, "Model probability"
-
-    return None, "Unavailable"
+    return None
 
 
 # =========================================================
-# 11. MODEL COMPARISON
+# EVALUATION METRICS
 # =========================================================
 
-def compare_models(
-    input_df,
-    models
-):
+def calculate_metrics(model, X_test, y_test):
 
-    rows = []
+    predictions = model.predict(X_test)
 
-    predictions = []
-
-    for name in MODEL_NAMES:
-
-        model = models[name]
-
-        prediction = int(
-            model.predict(input_df)[0]
-        )
-
-        probabilities, confidence_type = (
-            get_model_probabilities(
-                model,
-                input_df,
-                name
-            )
-        )
-
-        if probabilities is not None:
-
-            healthy_confidence = float(
-                probabilities[0]
-            )
-
-            pd_confidence = float(
-                probabilities[1]
-            )
-
-            predicted_confidence = float(
-                probabilities[prediction]
-            )
-
-        else:
-
-            healthy_confidence = np.nan
-            pd_confidence = np.nan
-            predicted_confidence = np.nan
-
-        predictions.append(prediction)
-
-        rows.append({
-
-            "Model": name,
-
-            "Predicted Class": CLASS_NAMES[
-                prediction
-            ],
-
-            "Healthy Confidence (%)": (
-                healthy_confidence * 100
-                if not np.isnan(healthy_confidence)
-                else np.nan
-            ),
-
-            "Parkinson's Confidence (%)": (
-                pd_confidence * 100
-                if not np.isnan(pd_confidence)
-                else np.nan
-            ),
-
-            "Predicted Class Confidence (%)": (
-                predicted_confidence * 100
-                if not np.isnan(predicted_confidence)
-                else np.nan
-            ),
-
-            "Confidence Type": confidence_type
-
-        })
-
-    result_df = pd.DataFrame(rows)
-
-    pd_count = predictions.count(1)
-
-    healthy_count = predictions.count(0)
-
-    majority_class = (
-        1 if pd_count > healthy_count else 0
-    )
-
-    agreement = (
-        max(pd_count, healthy_count)
-        / len(predictions)
-    ) * 100
-
-    return (
-        result_df,
-        predictions,
-        majority_class,
-        agreement,
-        pd_count,
-        healthy_count
-    )
-
-
-# =========================================================
-# 12. MODEL EVALUATION
-# =========================================================
-
-def evaluate_model(
-    model,
-    X_test,
-    y_test
-):
-
-    predictions = model.predict(
+    probabilities = get_probability(
+        model,
         X_test
     )
 
-    result = {
+    auc = np.nan
+
+    if (
+        probabilities is not None
+        and len(np.unique(y_test)) == 2
+    ):
+
+        try:
+            auc = roc_auc_score(
+                y_test,
+                probabilities
+            )
+        except Exception:
+            pass
+
+    return {
 
         "Accuracy": accuracy_score(
             y_test,
@@ -827,99 +523,42 @@ def evaluate_model(
             zero_division=0
         ),
 
+        "ROC-AUC": auc,
+
         "MCC": matthews_corrcoef(
             y_test,
             predictions
-        ),
-
-        "ROC-AUC": np.nan
-
+        )
     }
 
-    # ROC-AUC requires both classes in test data
-
-    if y_test.nunique() == 2:
-
-        try:
-
-            if hasattr(model, "predict_proba"):
-
-                probabilities = model.predict_proba(
-                    X_test
-                )
-
-                classes = list(
-                    model.classes_
-                )
-
-                if 1 in classes:
-
-                    positive_index = classes.index(1)
-
-                    result["ROC-AUC"] = roc_auc_score(
-                        y_test,
-                        probabilities[:, positive_index]
-                    )
-
-        except Exception:
-
-            result["ROC-AUC"] = np.nan
-
-    return result
-
 
 # =========================================================
-# 13. RANDOM SPLIT TRAINING
+# TRAIN ALL MODELS
 # =========================================================
 
-def train_all_models(X, y):
+def train_all_models(
+    X_train,
+    X_test,
+    y_train,
+    y_test
+):
 
-    X_train, X_test, y_train, y_test = train_test_split(
-
-        X,
-        y,
-
-        test_size=0.20,
-
-        random_state=42,
-
-        stratify=y
-
-    )
-
-    if y_train.nunique() != 2:
-
-        raise ValueError(
-            "Training split does not contain both classes."
-        )
-
-    if y_test.nunique() != 2:
-
-        raise ValueError(
-            "Testing split does not contain both classes."
-        )
-
-    models = create_all_models(
-
-        len(X_train),
-
-        int(y_train.value_counts().min())
-
+    models = create_models(
+        y_train.value_counts().min(),
+        len(X_train)
     )
 
     trained_models = {}
-
     result_rows = []
 
     progress = st.progress(0)
+    status = st.empty()
 
-    status_text = st.empty()
+    total = len(models)
 
-    for i, (name, model) in enumerate(
-        models.items()
-    ):
+    for i, (name, model) in enumerate(models.items()):
 
-        status_text.write(
+        status.write(
             f"Training {name}..."
         )
 
@@ -928,2128 +567,1064 @@ def train_all_models(X, y):
             y_train
         )
 
-        trained_models[name] = model
-
-        result = evaluate_model(
+        metrics = calculate_metrics(
             model,
             X_test,
             y_test
         )
 
-        result["Model"] = name
+        trained_models[name] = model
 
-        result_rows.append(result)
+        result_rows.append({
+            "Model": name,
+            **metrics
+        })
 
         progress.progress(
-            (i + 1) / len(models)
+            (i + 1) / total
         )
 
-    progress.empty()
-
-    status_text.empty()
+    status.success(
+        "All models trained successfully."
+    )
 
     return (
-
         trained_models,
-
-        pd.DataFrame(result_rows),
-
-        X_train,
-
-        X_test,
-
-        y_train,
-
-        y_test
-
+        pd.DataFrame(result_rows)
     )
 
 
 # =========================================================
-# 14. SHAP EXPLANATION
+# TESTING CSV PREPARATION
 # =========================================================
 
-def generate_shap_explanation(
-    input_df,
-    feature_names,
-    random_forest_pipeline
-):
+def prepare_testing_csv(df, feature_names):
 
-    import shap
+    data = df.copy()
 
-    imputer = random_forest_pipeline.named_steps[
-        "imputer"
+    data.columns = [
+        str(c).strip()
+        for c in data.columns
     ]
 
-    rf_model = random_forest_pipeline.named_steps[
-        "model"
+    actual_status = None
+
+    status_col = next(
+        (
+            c for c in data.columns
+            if c.lower() == "status"
+        ),
+        None
+    )
+
+    if status_col is not None:
+
+        actual_status = pd.to_numeric(
+            data[status_col],
+            errors="coerce"
+        )
+
+    ignored = {
+        "status",
+        "name",
+        "subject_id",
+        "subject",
+        "patient_id",
+        "id"
+    }
+
+    feature_data = data[
+        [
+            c for c in data.columns
+            if c.lower() not in ignored
+        ]
+    ].copy()
+
+    missing = [
+        c for c in feature_names
+        if c not in feature_data.columns
     ]
 
-    transformed = imputer.transform(
-        input_df
-    )
+    if missing:
+        raise ValueError(
+            "Missing features: "
+            + ", ".join(missing)
+        )
 
-    explainer = shap.TreeExplainer(
-        rf_model
-    )
+    feature_data = feature_data[
+        feature_names
+    ].copy()
 
-    values = explainer.shap_values(
-        transformed
-    )
+    for col in feature_names:
 
-    classes = list(
-        rf_model.classes_
-    )
+        feature_data[col] = pd.to_numeric(
+            feature_data[col],
+            errors="coerce"
+        )
 
-    positive_index = (
-        classes.index(1)
-        if 1 in classes
-        else 0
-    )
-
-    # SHAP output compatibility:
-    # Older SHAP: list of class arrays
-    # Newer SHAP: 3D ndarray
-    # Some versions: 2D ndarray
-
-    if isinstance(values, list):
-
-        if positive_index < len(values):
-
-            shap_values = np.asarray(
-                values[positive_index]
-            )[0]
-
-        else:
-
-            raise ValueError(
-                "Positive class SHAP values unavailable."
-            )
-
-    else:
-
-        values = np.asarray(values)
-
-        if values.ndim == 3:
-
-            if values.shape[-1] == len(classes):
-
-                shap_values = values[
-                    0,
-                    :,
-                    positive_index
-                ]
-
-            elif values.shape[0] == len(classes):
-
-                shap_values = values[
-                    positive_index,
-                    0,
-                    :
-                ]
-
-            elif values.shape[1] == len(classes):
-
-                shap_values = values[
-                    0,
-                    positive_index,
-                    :
-                ]
-
-            else:
-
-                raise ValueError(
-                    f"Unsupported SHAP shape: {values.shape}"
-                )
-
-        elif values.ndim == 2:
-
-            shap_values = values[0]
-
-        else:
-
-            raise ValueError(
-                f"Unexpected SHAP output shape: {values.shape}"
-            )
-
-    shap_values = np.asarray(
-        shap_values
-    ).reshape(-1)
-
-    if len(shap_values) != len(feature_names):
+    if feature_data.isna().all(axis=1).any():
 
         raise ValueError(
-            "SHAP feature dimension does not match "
-            "the original input features."
+            "Some testing rows contain no valid numeric features."
         )
 
-    shap_df = pd.DataFrame({
-
-        "Feature": feature_names,
-
-        "Input Value": [
-            input_df.iloc[0][feature]
-            for feature in feature_names
-        ],
-
-        "SHAP Value": shap_values,
-
-        "Absolute Impact": np.abs(
-            shap_values
-        )
-
-    })
-
-    shap_df = shap_df.sort_values(
-        "Absolute Impact",
-        ascending=False
-    ).reset_index(drop=True)
-
-    return shap_df
+    return feature_data, actual_status
 
 
 # =========================================================
-# 15. SUBJECT-DISJOINT FIVE-FOLD EVALUATION
+# DOWNLOAD
 # =========================================================
 
-def run_subject_disjoint_evaluation(
-    X,
-    y,
-    groups
-):
+def download_csv(df, filename, key):
 
-    gkf = GroupKFold(
-        n_splits=5
+    st.download_button(
+        "Download CSV",
+        data=df.to_csv(index=False).encode("utf-8"),
+        file_name=filename,
+        mime="text/csv",
+        key=key
     )
-
-    fold_results = []
-
-    progress = st.progress(0)
-
-    status_text = st.empty()
-
-    splits = list(
-        gkf.split(X, y, groups)
-    )
-
-    for fold_number, (
-        train_idx,
-        test_idx
-    ) in enumerate(splits, start=1):
-
-        X_train = X.iloc[
-            train_idx
-        ]
-
-        X_test = X.iloc[
-            test_idx
-        ]
-
-        y_train = y.iloc[
-            train_idx
-        ]
-
-        y_test = y.iloc[
-            test_idx
-        ]
-
-        train_groups = set(
-            groups.iloc[train_idx]
-        )
-
-        test_groups = set(
-            groups.iloc[test_idx]
-        )
-
-        overlap = (
-            train_groups.intersection(
-                test_groups
-            )
-        )
-
-        if overlap:
-
-            raise ValueError(
-                f"Subject leakage detected in Fold {fold_number}."
-            )
-
-        if y_train.nunique() != 2:
-
-            raise ValueError(
-                f"Fold {fold_number}: training data "
-                "does not contain both classes."
-            )
-
-        if y_train.value_counts().min() < 2:
-
-            raise ValueError(
-                f"Fold {fold_number}: insufficient samples "
-                "for ensemble stacking."
-            )
-
-        status_text.write(
-            f"Evaluating Fold {fold_number}/5..."
-        )
-
-        models = create_all_models(
-
-            len(X_train),
-
-            int(y_train.value_counts().min())
-
-        )
-
-        for name, model in models.items():
-
-            model.fit(
-                X_train,
-                y_train
-            )
-
-            result = evaluate_model(
-                model,
-                X_test,
-                y_test
-            )
-
-            result.update({
-
-                "Fold": fold_number,
-
-                "Model": name,
-
-                "Train Records": len(train_idx),
-
-                "Test Records": len(test_idx),
-
-                "Train Subjects": len(train_groups),
-
-                "Test Subjects": len(test_groups),
-
-                "Subject Overlap": len(overlap)
-
-            })
-
-            fold_results.append(result)
-
-        progress.progress(
-            fold_number / 5
-        )
-
-    progress.empty()
-
-    status_text.empty()
-
-    fold_df = pd.DataFrame(
-        fold_results
-    )
-
-    # Mean and standard deviation across five folds
-
-    summary_rows = []
-
-    for name in MODEL_NAMES:
-
-        model_data = fold_df[
-            fold_df["Model"] == name
-        ]
-
-        row = {
-            "Model": name
-        }
-
-        for metric in METRIC_COLUMNS:
-
-            row[metric + " Mean"] = (
-                model_data[metric].mean()
-            )
-
-            row[metric + " Std"] = (
-                model_data[metric].std(ddof=1)
-                if model_data[metric].notna().sum() > 1
-                else np.nan
-            )
-
-        summary_rows.append(row)
-
-    summary_df = pd.DataFrame(
-        summary_rows
-    )
-
-    return fold_df, summary_df
 
 
 # =========================================================
-# 16. SIDEBAR NAVIGATION
+# SIDEBAR
 # =========================================================
 
-st.sidebar.title(
-    "🧠 Parkinson's AI System"
-)
-
-st.sidebar.caption(
-    "Voice Classification Platform"
-)
-
-uploaded_dataset = st.sidebar.file_uploader(
-    "Upload Training Dataset",
-    type=["csv", "data"],
-    key="training_dataset"
-)
-
-st.sidebar.markdown("---")
+st.sidebar.title("Parkinson's Classification")
 
 page = st.sidebar.radio(
-
     "Navigation",
-
     [
         "Dashboard",
         "Prediction",
-        "All Models Comparison",
+        "Model Comparison",
         "SHAP Explainability",
-        "Model Evaluation",
-        "Subject-Disjoint Evaluation",
-        "Model Information"
+        "Model Evaluation"
     ]
-
 )
 
-st.sidebar.markdown("---")
-
-st.sidebar.caption(
-    "Machine Learning | Ensemble Learning | SHAP"
+uploaded_dataset = st.sidebar.file_uploader(
+    "Training Dataset",
+    type=["csv", "data", "txt"],
+    key="training_dataset"
 )
 
 
 # =========================================================
-# 17. LOAD DATASET
+# LOAD DATA
 # =========================================================
 
 try:
 
-    raw_data = load_dataset(
-        uploaded_dataset
-    )
+    if uploaded_dataset is not None:
+
+        raw_data = load_dataset(
+            uploaded_dataset
+        )
+
+    else:
+
+        raw_data = load_dataset(None)
 
     if raw_data is None:
 
-        st.title(
-            "Parkinson's Disease Voice Classification"
-        )
-
-        st.warning(
-            "Upload your dataset or place "
-            "'parkinsons.csv' in the same folder "
-            "as app.py."
+        st.error(
+            "Upload your Parkinson's dataset or place "
+            "parkinsons.csv beside app.py."
         )
 
         st.stop()
 
-    df, X, y, feature_columns = prepare_dataset(
-        raw_data
-    )
+    current_hash = hashlib.md5(
+        pd.util.hash_pandas_object(
+            raw_data,
+            index=True
+        ).values.tobytes()
+    ).hexdigest()
 
-except Exception as error:
+    if (
+        st.session_state.data_hash
+        != current_hash
+    ):
+
+        X, y = prepare_dataset(raw_data)
+
+        st.session_state.data_hash = current_hash
+        st.session_state.X = X.copy()
+        st.session_state.y = y.copy()
+
+        reset_training()
+
+    else:
+
+        X = st.session_state.X
+        y = st.session_state.y
+
+except Exception as e:
 
     st.error(
-        f"Dataset error: {error}"
+        f"Dataset Error: {e}"
     )
 
     st.stop()
 
 
 # =========================================================
-# 18. DATASET CHANGE DETECTION
+# TRAINING SETTINGS
 # =========================================================
 
-signature = get_dataset_signature(
-    df
+st.sidebar.divider()
+
+test_percent = st.sidebar.slider(
+    "Internal Test Size (%)",
+    min_value=10,
+    max_value=40,
+    value=20,
+    step=5
 )
 
-if (
-    st.session_state.dataset_signature
-    != signature
+if st.sidebar.button(
+    "Train All 8 Models",
+    use_container_width=True
 ):
 
-    reset_session()
+    try:
 
-    st.session_state.dataset_signature = signature
+        X_train, X_test, y_train, y_test = train_test_split(
+            X,
+            y,
+            test_size=test_percent / 100,
+            random_state=42,
+            stratify=y
+        )
 
+        with st.spinner(
+            "Training models..."
+        ):
 
-# =========================================================
-# 19. TRAIN MODELS
-# =========================================================
-
-if not st.session_state.trained:
-
-    with st.spinner(
-        "Training all eight machine learning models..."
-    ):
-
-        try:
-
-            (
-
-                trained_models,
-
-                metrics,
-
+            models, results = train_all_models(
                 X_train,
-
                 X_test,
-
                 y_train,
-
                 y_test
-
-            ) = train_all_models(
-                X,
-                y
             )
 
-            st.session_state.models = trained_models
+        st.session_state.X_train = X_train
+        st.session_state.X_test = X_test
+        st.session_state.y_train = y_train
+        st.session_state.y_test = y_test
 
-            st.session_state.metrics = metrics
+        st.session_state.models = models
+        st.session_state.results = results
 
-            st.session_state.X_train = X_train
+        st.session_state.trained = True
+        st.session_state.training_error = None
 
-            st.session_state.X_test = X_test
+        st.sidebar.success(
+            "Training completed."
+        )
 
-            st.session_state.y_train = y_train
+    except Exception as e:
 
-            st.session_state.y_test = y_test
+        reset_training()
 
-            st.session_state.trained = True
+        st.session_state.training_error = str(e)
 
-        except Exception as error:
+        st.sidebar.error(
+            "Training failed."
+        )
 
-            st.error(
-                f"Model training failed: {error}"
-            )
+if st.session_state.training_error:
 
-            st.stop()
-
-
-# =========================================================
-# 20. APPLICATION HEADER
-# =========================================================
-
-st.title(
-    "Parkinson's Disease Voice Classification"
-)
-
-st.caption(
-    "Machine Learning | Ensemble Learning | Explainable AI"
-)
-
-st.markdown("---")
+    st.error(
+        st.session_state.training_error
+    )
 
 
 # =========================================================
-# 21. DASHBOARD
+# DASHBOARD
 # =========================================================
 
 if page == "Dashboard":
 
-    st.subheader(
-        "System Dashboard"
+    st.title(
+        "Parkinson's Disease Voice Classification"
     )
 
-    c1, c2, c3, c4 = st.columns(4)
+    col1, col2, col3, col4 = st.columns(4)
 
-    c1.metric(
-        "Total Records",
-        len(df)
+    col1.metric(
+        "Recordings",
+        len(raw_data)
     )
 
-    c2.metric(
-        "Voice Features",
-        len(feature_columns)
+    col2.metric(
+        "Features",
+        X.shape[1]
     )
 
-    c3.metric(
-        "Healthy Records",
+    col3.metric(
+        "Healthy",
         int((y == 0).sum())
     )
 
-    c4.metric(
-        "Parkinson's Records",
+    col4.metric(
+        "Parkinson's",
         int((y == 1).sum())
     )
 
-    st.markdown("---")
+    st.divider()
 
-    left, right = st.columns(2)
-
-    with left:
-
-        st.subheader(
-            "Dataset Class Distribution"
-        )
-
-        counts = y.value_counts().sort_index()
-
-        fig, ax = plt.subplots(
-            figsize=(6, 4)
-        )
-
-        ax.bar(
-            ["Healthy", "Parkinson's"],
-            [
-                counts.get(0, 0),
-                counts.get(1, 0)
-            ]
-        )
-
-        ax.set_ylabel(
-            "Number of Records"
-        )
-
-        ax.set_title(
-            "Class Distribution"
-        )
-
-        st.pyplot(fig)
-
-        plt.close(fig)
-
-    with right:
-
-        st.subheader(
-            "Model Overview"
-        )
-
-        st.metric(
-            "Individual Models",
-            5
-        )
-
-        st.metric(
-            "Ensemble Models",
-            3
-        )
-
-        st.metric(
-            "Total Models",
-            len(st.session_state.models)
-        )
-
-        st.metric(
-            "Unique Subjects",
-            df["subject_id"].nunique()
-        )
-
-    st.markdown("---")
-
-    st.subheader(
-        "Random Split Performance Overview"
-    )
+    st.subheader("Dataset Preview")
 
     st.dataframe(
-
-        st.session_state.metrics[
-            [
-                "Model",
-                "Accuracy",
-                "Precision",
-                "Recall",
-                "F1-Score",
-                "ROC-AUC",
-                "MCC"
-            ]
-        ],
-
-        use_container_width=True,
-
-        hide_index=True
-
+        raw_data.head(8),
+        use_container_width=True
     )
 
-    st.caption(
-        "Evaluation uses a stratified 80:20 random split."
+    st.subheader("Class Distribution")
+
+    counts = y.value_counts().reindex(
+        [0, 1],
+        fill_value=0
     )
+
+    fig, ax = plt.subplots(figsize=(6, 3))
+
+    ax.bar(
+        ["Healthy", "Parkinson's"],
+        counts.values
+    )
+
+    ax.set_ylabel("Recordings")
+
+    st.pyplot(fig)
+    plt.close(fig)
+
+    if st.session_state.trained:
+
+        st.success(
+            "Models are trained and ready."
+        )
+
+    else:
+
+        st.info(
+            "Train all models from the sidebar."
+        )
 
 
 # =========================================================
-# 22. PREDICTION
+# PREDICTION
 # =========================================================
 
 elif page == "Prediction":
 
-    st.subheader(
-        "Voice Feature Input"
+    st.title("Prediction")
+
+    if not st.session_state.trained:
+
+        st.warning(
+            "Train all models first."
+        )
+
+        st.stop()
+
+    features = list(
+        st.session_state.X_train.columns
     )
 
-    input_method = st.radio(
+    st.subheader("Upload Testing Sets")
 
-        "Choose Input Method",
-
-        [
-            "Manual Feature Entry",
-            "CSV File Upload"
-        ],
-
-        horizontal=True
-
+    st.caption(
+        "Upload 4 or 5 separate testing CSV files. "
+        "All 8 models will predict every uploaded testing set."
     )
 
-    # ---------------------------------------------
-    # MANUAL INPUT
-    # ---------------------------------------------
+    testing_files = st.file_uploader(
+        "Testing CSV Files",
+        type=["csv"],
+        accept_multiple_files=True,
+        key="multiple_testing_files"
+    )
 
-    if input_method == "Manual Feature Entry":
+    if testing_files:
 
-        st.write(
-            "Enter numerical voice feature values."
-        )
+        if len(testing_files) > 5:
 
-        medians = X.median().fillna(0)
-
-        with st.form(
-            "manual_input_form"
-        ):
-
-            values = {}
-
-            columns = st.columns(2)
-
-            for i, feature in enumerate(
-                feature_columns
-            ):
-
-                with columns[i % 2]:
-
-                    values[feature] = st.number_input(
-
-                        feature,
-
-                        value=float(
-                            medians[feature]
-                        ),
-
-                        format="%.6f",
-
-                        key=f"manual_{feature}"
-
-                    )
-
-            submitted = st.form_submit_button(
-
-                "Analyze Voice Features",
-
-                use_container_width=True
-
+            st.error(
+                "Maximum 5 testing files are allowed."
             )
 
-        if submitted:
+        else:
 
-            input_df = pd.DataFrame(
+            for file_index, testing_file in enumerate(testing_files):
 
-                [values],
+                with st.expander(
+                    testing_file.name,
+                    expanded=True
+                ):
 
-                columns=feature_columns
+                    try:
 
-            )
+                        testing_file.seek(0)
 
-            st.session_state.latest_input = input_df
-
-            st.session_state.latest_results = None
-
-            st.session_state.latest_shap = None
-
-            st.session_state.latest_source = "Manual Entry"
-
-            st.success(
-                "Manual input saved successfully."
-            )
-
-    # ---------------------------------------------
-    # CSV INPUT
-    # ---------------------------------------------
-
-    else:
-
-        st.write(
-            "Upload a CSV containing the required voice features."
-        )
-
-        prediction_file = st.file_uploader(
-
-            "Upload Prediction CSV",
-
-            type=["csv"],
-
-            key="prediction_csv"
-
-        )
-
-        if prediction_file is not None:
-
-            try:
-
-                uploaded_df = pd.read_csv(
-                    prediction_file
-                )
-
-                uploaded_df.columns = (
-                    uploaded_df.columns.astype(str).str.strip()
-                )
-
-                missing = [
-
-                    feature
-
-                    for feature in feature_columns
-
-                    if feature not in uploaded_df.columns
-
-                ]
-
-                if missing:
-
-                    st.error(
-                        "Missing required features: "
-                        + ", ".join(missing)
-                    )
-
-                elif uploaded_df.empty:
-
-                    st.error(
-                        "Uploaded CSV is empty."
-                    )
-
-                else:
-
-                    input_df = uploaded_df[
-                        feature_columns
-                    ].copy()
-
-                    for column in feature_columns:
-
-                        input_df[column] = pd.to_numeric(
-
-                            input_df[column],
-
-                            errors="coerce"
-
+                        testing_df = pd.read_csv(
+                            testing_file
                         )
 
-                    input_df = input_df.replace(
-
-                        [np.inf, -np.inf],
-
-                        np.nan
-
-                    )
-
-                    if input_df.isna().all(axis=1).any():
-
-                        st.error(
-                            "At least one CSV record has no "
-                            "usable numerical feature values."
+                        X_external, actual_status = prepare_testing_csv(
+                            testing_df,
+                            features
                         )
 
-                    else:
+                        st.write(
+                            f"Testing records: {len(X_external)}"
+                        )
 
-                        st.success(
-                            f"{len(input_df)} records loaded."
+                        model_outputs = []
+
+                        for model_name, model in st.session_state.models.items():
+
+                            predictions = model.predict(
+                                X_external
+                            )
+
+                            probabilities = get_probability(
+                                model,
+                                X_external
+                            )
+
+                            output = pd.DataFrame({
+
+                                "Row": np.arange(
+                                    1,
+                                    len(X_external) + 1
+                                ),
+
+                                "Model": model_name,
+
+                                "Prediction": predictions,
+
+                                "Prediction_Label": [
+                                    "Parkinson's" if p == 1
+                                    else "Healthy"
+                                    for p in predictions
+                                ]
+                            })
+
+                            if probabilities is not None:
+
+                                output[
+                                    "Parkinsons_Probability"
+                                ] = probabilities
+
+                            if (
+                                actual_status is not None
+                                and actual_status.notna().all()
+                            ):
+
+                                actual = actual_status.astype(int)
+
+                                output["Actual_Status"] = actual.values
+
+                                output["Actual_Label"] = [
+                                    "Parkinson's" if p == 1
+                                    else "Healthy"
+                                    for p in actual
+                                ]
+
+                                output["Correct"] = (
+                                    predictions == actual.values
+                                )
+
+                                metrics = calculate_metrics(
+                                    model,
+                                    X_external,
+                                    actual
+                                )
+
+                                st.write(
+                                    f"**{model_name} - Testing Metrics**"
+                                )
+
+                                m1, m2, m3 = st.columns(3)
+
+                                m1.metric(
+                                    "Accuracy",
+                                    f"{metrics['Accuracy']:.4f}"
+                                )
+
+                                m2.metric(
+                                    "F1-Score",
+                                    f"{metrics['F1-Score']:.4f}"
+                                )
+
+                                m3.metric(
+                                    "Recall",
+                                    f"{metrics['Recall']:.4f}"
+                                )
+
+                            model_outputs.append(output)
+
+                        combined_output = pd.concat(
+                            model_outputs,
+                            ignore_index=True
                         )
 
                         st.dataframe(
-
-                            input_df.head(10),
-
+                            combined_output,
                             use_container_width=True
-
                         )
 
-                        if st.button(
-
-                            "Analyze CSV Records",
-
-                            use_container_width=True,
-
-                            key="analyze_csv"
-
-                        ):
-
-                            st.session_state.latest_input = input_df
-
-                            st.session_state.latest_results = None
-
-                            st.session_state.latest_shap = None
-
-                            st.session_state.latest_source = "CSV Upload"
-
-                            st.rerun()
-
-            except Exception as error:
-
-                st.error(
-                    f"CSV error: {error}"
-                )
-
-    # ---------------------------------------------
-    # SHARED PREDICTION PIPELINE
-    # ---------------------------------------------
-
-    saved_input = st.session_state.latest_input
-
-    if saved_input is not None:
-
-        st.markdown("---")
-
-        st.subheader(
-            "Prediction Results"
-        )
-
-        st.caption(
-            f"Input Source: {st.session_state.latest_source}"
-        )
-
-        if st.session_state.latest_results is None:
-
-            if st.button(
-
-                "Run All Eight Models",
-
-                use_container_width=True,
-
-                key="run_prediction"
-
-            ):
-
-                try:
-
-                    if saved_input.isna().all(axis=1).any():
-
-                        raise ValueError(
-                            "One or more records contain no usable features."
+                        download_csv(
+                            combined_output,
+                            f"{os.path.splitext(testing_file.name)[0]}_predictions.csv",
+                            f"prediction_download_{file_index}"
                         )
 
-                    result_rows = []
+                    except Exception as e:
 
-                    summary_rows = []
-
-                    progress = st.progress(0)
-
-                    for i in range(len(saved_input)):
-
-                        one_row = saved_input.iloc[
-                            [i]
-                        ].copy()
-
-                        (
-
-                            result_df,
-
-                            predictions,
-
-                            majority,
-
-                            agreement,
-
-                            pd_count,
-
-                            healthy_count
-
-                        ) = compare_models(
-
-                            one_row,
-
-                            st.session_state.models
-
+                        st.error(
+                            f"Testing error: {e}"
                         )
-
-                        result_df.insert(
-                            0,
-                            "Record",
-                            i + 1
-                        )
-
-                        result_rows.append(
-                            result_df
-                        )
-
-                        summary_rows.append({
-
-                            "Record": i + 1,
-
-                            "Majority Prediction": CLASS_NAMES[
-                                majority
-                            ],
-
-                            "Parkinson's Votes": pd_count,
-
-                            "Healthy Votes": healthy_count,
-
-                            "Model Agreement (%)": agreement
-
-                        })
-
-                        progress.progress(
-                            (i + 1) / len(saved_input)
-                        )
-
-                    progress.empty()
-
-                    st.session_state.latest_results = {
-
-                        "details": pd.concat(
-
-                            result_rows,
-
-                            ignore_index=True
-
-                        ),
-
-                        "summary": pd.DataFrame(
-                            summary_rows
-                        )
-
-                    }
-
-                    st.rerun()
-
-                except Exception as error:
-
-                    st.error(
-                        f"Prediction error: {error}"
-                    )
-
-        # -----------------------------------------
-        # DISPLAY RESULTS
-        # -----------------------------------------
-
-        if st.session_state.latest_results is not None:
-
-            details = st.session_state.latest_results[
-                "details"
-            ]
-
-            summary = st.session_state.latest_results[
-                "summary"
-            ]
-
-            st.subheader(
-                "Majority Model Results"
-            )
-
-            st.dataframe(
-
-                summary,
-
-                use_container_width=True,
-
-                hide_index=True
-
-            )
-
-            st.subheader(
-                "All Models Prediction and Confidence"
-            )
-
-            st.dataframe(
-
-                details,
-
-                use_container_width=True,
-
-                hide_index=True
-
-            )
-
-            st.caption(
-                "Hard Voting confidence is an estimated average "
-                "of base-model probabilities, not a native calibrated "
-                "probability of the Hard Voting classifier."
-            )
-
-            csv_result = details.to_csv(
-                index=False
-            ).encode("utf-8")
-
-            st.download_button(
-
-                "Download Prediction Results",
-
-                data=csv_result,
-
-                file_name="model_comparison_results.csv",
-
-                mime="text/csv"
-
-            )
-
-            if len(summary) == 1:
-
-                row = summary.iloc[0]
-
-                st.markdown("---")
-
-                st.subheader(
-                    "Model Agreement"
-                )
-
-                c1, c2, c3 = st.columns(3)
-
-                c1.metric(
-                    "Agreement",
-                    f"{row['Model Agreement (%)']:.1f}%"
-                )
-
-                c2.metric(
-                    "Parkinson's Votes",
-                    int(row["Parkinson's Votes"])
-                )
-
-                c3.metric(
-                    "Healthy Votes",
-                    int(row["Healthy Votes"])
-                )
-
-                st.progress(
-                    float(
-                        row["Model Agreement (%)"]
-                    ) / 100
-                )
-
-                st.info(
-                    "Majority prediction: "
-                    + row["Majority Prediction"]
-                )
-
-                st.subheader(
-                    "Prediction Confidence Comparison"
-                )
-
-                chart_data = details.set_index(
-                    "Model"
-                )[
-                    [
-                        "Healthy Confidence (%)",
-                        "Parkinson's Confidence (%)"
-                    ]
-                ]
-
-                st.bar_chart(
-                    chart_data,
-                    use_container_width=True
-                )
-
-            else:
-
-                st.info(
-                    "Multiple records were evaluated. "
-                    "Select a record in All Models Comparison "
-                    "to inspect its individual results."
-                )
-
-
-# =========================================================
-# 23. ALL MODELS COMPARISON
-# =========================================================
-
-elif page == "All Models Comparison":
-
-    st.subheader(
-        "All Models Comparison"
-    )
-
-    if st.session_state.latest_results is None:
-
-        st.info(
-            "Run a prediction first from the Prediction page."
-        )
 
     else:
 
-        details = st.session_state.latest_results[
-            "details"
-        ]
-
-        summary = st.session_state.latest_results[
-            "summary"
-        ]
-
-        selected_record = st.selectbox(
-
-            "Select Input Record",
-
-            summary["Record"].tolist()
-
-        )
-
-        record_results = details[
-
-            details["Record"] == selected_record
-
-        ].copy()
-
-        summary_row = summary[
-
-            summary["Record"] == selected_record
-
-        ].iloc[0]
-
-        c1, c2, c3 = st.columns(3)
-
-        c1.metric(
-
-            "Model Agreement",
-
-            f"{summary_row['Model Agreement (%)']:.1f}%"
-
-        )
-
-        c2.metric(
-
-            "Parkinson's Votes",
-
-            int(summary_row["Parkinson's Votes"])
-
-        )
-
-        c3.metric(
-
-            "Healthy Votes",
-
-            int(summary_row["Healthy Votes"])
-
-        )
-
-        st.markdown("---")
-
-        st.subheader(
-            "Prediction and Confidence Table"
-        )
-
-        st.dataframe(
-
-            record_results.drop(
-                columns=["Record"]
-            ),
-
-            use_container_width=True,
-
-            hide_index=True
-
-        )
-
-        st.subheader(
-            "Confidence Score Visualization"
-        )
-
-        chart = record_results.set_index(
-            "Model"
-        )[
-
-            [
-                "Healthy Confidence (%)",
-                "Parkinson's Confidence (%)"
-            ]
-
-        ]
-
-        st.bar_chart(
-            chart,
-            use_container_width=True
-        )
-
-        st.caption(
-            "Confidence scores are model outputs and should not "
-            "be interpreted as clinical certainty."
-        )
-
-
-# =========================================================
-# 24. SHAP EXPLAINABILITY
-# =========================================================
-
-elif page == "SHAP Explainability":
-
-    st.subheader(
-        "SHAP Explainability"
-    )
-
-    st.write(
-        "SHAP explains how individual voice features influence "
-        "the Random Forest model output."
-    )
-
-    if st.session_state.latest_input is None:
-
         st.info(
-            "Run a prediction first from the Prediction page."
+            "Upload your testing CSV files to generate predictions."
         )
-
-    else:
-
-        latest_input = st.session_state.latest_input
-
-        record_number = st.selectbox(
-
-            "Select Record for Explanation",
-
-            list(
-                range(
-                    1,
-                    len(latest_input) + 1
-                )
-            )
-
-        )
-
-        selected_input = latest_input.iloc[
-            [record_number - 1]
-        ].copy()
-
-        if st.button(
-
-            "Generate SHAP Explanation",
-
-            use_container_width=True
-
-        ):
-
-            try:
-
-                with st.spinner(
-                    "Generating SHAP explanation..."
-                ):
-
-                    shap_df = generate_shap_explanation(
-
-                        selected_input,
-
-                        feature_columns,
-
-                        st.session_state.models[
-                            "Random Forest"
-                        ]
-
-                    )
-
-                    st.session_state.latest_shap = {
-
-                        "record": record_number,
-
-                        "data": shap_df
-
-                    }
-
-            except ImportError:
-
-                st.error(
-                    "SHAP is not installed. Run: pip install shap"
-                )
-
-            except Exception as error:
-
-                st.error(
-                    f"SHAP error: {error}"
-                )
-
-        saved_shap = st.session_state.latest_shap
-
-        if (
-
-            saved_shap is not None
-
-            and saved_shap["record"] == record_number
-
-        ):
-
-            shap_df = saved_shap["data"]
-
-            st.success(
-                "SHAP explanation generated successfully."
-            )
-
-            st.markdown("---")
-
-            st.subheader(
-                "Important Voice Features"
-            )
-
-            top_features = shap_df.head(15).copy()
-
-            fig, ax = plt.subplots(
-                figsize=(10, 6)
-            )
-
-            ax.barh(
-
-                top_features["Feature"].iloc[::-1],
-
-                top_features["SHAP Value"].iloc[::-1]
-
-            )
-
-            ax.axvline(
-                0,
-                linestyle="--",
-                linewidth=1
-            )
-
-            ax.set_xlabel(
-                "SHAP Value"
-            )
-
-            ax.set_title(
-                "Random Forest - SHAP Feature Impact"
-            )
-
-            st.pyplot(fig)
-
-            plt.close(fig)
-
-            st.caption(
-                "Positive SHAP values push the model output "
-                "toward Parkinson's (class 1). Negative values "
-                "push it toward Healthy (class 0)."
-            )
-
-            st.markdown("---")
-
-            st.subheader(
-                "SHAP Feature Impact Table"
-            )
-
-            st.dataframe(
-
-                shap_df[
-
-                    [
-                        "Feature",
-                        "Input Value",
-                        "SHAP Value",
-                        "Absolute Impact"
-                    ]
-
-                ],
-
-                use_container_width=True,
-
-                hide_index=True
-
-            )
-
-            st.markdown("---")
-
-            st.subheader(
-                "Top Influential Features"
-            )
-
-            for _, row in top_features.head(5).iterrows():
-
-                if row["SHAP Value"] > 0:
-
-                    direction = "toward Parkinson's"
-
-                elif row["SHAP Value"] < 0:
-
-                    direction = "toward Healthy"
-
-                else:
-
-                    direction = "neutral"
-
-                st.write(
-
-                    f"**{row['Feature']}** — "
-
-                    f"{direction} "
-
-                    f"(SHAP: {row['SHAP Value']:.5f})"
-
-                )
-
-            st.info(
-                "SHAP explains the Random Forest model output. "
-                "It does not provide a medical diagnosis."
-            )
 
 
 # =========================================================
-# 25. MODEL EVALUATION
+# MODEL COMPARISON
 # =========================================================
 
-elif page == "Model Evaluation":
+elif page == "Model Comparison":
 
-    st.subheader(
-        "Random Split Model Evaluation"
-    )
+    st.title("Model Comparison")
 
-    st.caption(
-        "Stratified 80:20 random train-test split."
-    )
+    if not st.session_state.trained:
 
-    selected_model_name = st.selectbox(
+        st.warning(
+            "Train all models first."
+        )
 
+        st.stop()
+
+    results = st.session_state.results.copy()
+
+    selected_model = st.selectbox(
         "Select Model",
-
-        MODEL_NAMES
-
+        results["Model"].tolist()
     )
 
-    model = st.session_state.models[
-        selected_model_name
-    ]
+    selected_row = results[
+        results["Model"] == selected_model
+    ].iloc[0]
 
-    X_test = st.session_state.X_test
-
-    y_test = st.session_state.y_test
-
-    predictions = model.predict(
-        X_test
-    )
-
-    metrics = evaluate_model(
-
-        model,
-
-        X_test,
-
-        y_test
-
-    )
+    st.subheader(selected_model)
 
     c1, c2, c3 = st.columns(3)
 
     c1.metric(
         "Accuracy",
-        f"{metrics['Accuracy']:.4f}"
+        f"{selected_row['Accuracy']:.4f}"
     )
 
     c2.metric(
         "Precision",
-        f"{metrics['Precision']:.4f}"
+        f"{selected_row['Precision']:.4f}"
     )
 
     c3.metric(
         "Recall",
-        f"{metrics['Recall']:.4f}"
+        f"{selected_row['Recall']:.4f}"
     )
 
     c4, c5, c6 = st.columns(3)
 
     c4.metric(
         "F1-Score",
-        f"{metrics['F1-Score']:.4f}"
+        f"{selected_row['F1-Score']:.4f}"
     )
 
     c5.metric(
-
         "ROC-AUC",
-
-        (
-            f"{metrics['ROC-AUC']:.4f}"
-
-            if not np.isnan(metrics["ROC-AUC"])
-
-            else "N/A"
-        )
-
+        "N/A" if pd.isna(selected_row["ROC-AUC"])
+        else f"{selected_row['ROC-AUC']:.4f}"
     )
 
     c6.metric(
         "MCC",
-        f"{metrics['MCC']:.4f}"
+        f"{selected_row['MCC']:.4f}"
     )
 
-    st.markdown("---")
+    st.divider()
 
-    left, right = st.columns(2)
+    selected_metric = st.selectbox(
+        "Compare Models By",
+        [
+            "Accuracy",
+            "Precision",
+            "Recall",
+            "F1-Score",
+            "ROC-AUC",
+            "MCC"
+        ]
+    )
 
-    with left:
+    chart_data = results.sort_values(
+        selected_metric,
+        ascending=False,
+        na_position="last"
+    )
 
-        st.subheader(
-            "Confusion Matrix"
-        )
+    fig, ax = plt.subplots(figsize=(10, 4))
 
-        cm = confusion_matrix(
+    ax.bar(
+        chart_data["Model"],
+        chart_data[selected_metric].fillna(0)
+    )
 
-            y_test,
+    ax.set_ylabel(selected_metric)
+    ax.set_ylim(0, 1.05)
+    ax.tick_params(
+        axis="x",
+        rotation=35
+    )
 
-            predictions,
+    st.pyplot(fig)
+    plt.close(fig)
 
-            labels=[0, 1]
+    st.subheader("Selected Model Result")
 
-        )
+    st.dataframe(
+        results[
+            results["Model"] == selected_model
+        ].set_index("Model"),
+        use_container_width=True
+    )
 
-        fig, ax = plt.subplots(
-            figsize=(5, 4)
-        )
-
-        ax.imshow(cm)
-
-        ax.set_xticks([0, 1])
-
-        ax.set_yticks([0, 1])
-
-        ax.set_xticklabels([
-            "Healthy",
-            "Parkinson's"
-        ])
-
-        ax.set_yticklabels([
-            "Healthy",
-            "Parkinson's"
-        ])
-
-        ax.set_xlabel(
-            "Predicted"
-        )
-
-        ax.set_ylabel(
-            "Actual"
-        )
-
-        ax.set_title(
-            "Confusion Matrix"
-        )
-
-        for i in range(2):
-
-            for j in range(2):
-
-                ax.text(
-
-                    j,
-
-                    i,
-
-                    str(cm[i, j]),
-
-                    ha="center",
-
-                    va="center",
-
-                    color="white"
-
-                )
-
-        st.pyplot(fig)
-
-        plt.close(fig)
-
-    with right:
-
-        st.subheader(
-            "Classification Report"
-        )
-
-        report = classification_report(
-
-            y_test,
-
-            predictions,
-
-            labels=[0, 1],
-
-            target_names=[
-                "Healthy",
-                "Parkinson's"
-            ],
-
-            output_dict=True,
-
-            zero_division=0
-
-        )
+    with st.expander("All Models Results"):
 
         st.dataframe(
-
-            pd.DataFrame(
-                report
-            ).transpose(),
-
+            results,
             use_container_width=True
-
         )
 
-    # ROC curve
-
-    if (
-
-        hasattr(model, "predict_proba")
-
-        and y_test.nunique() == 2
-
-    ):
-
-        try:
-
-            probability = model.predict_proba(
-                X_test
-            )
-
-            classes = list(
-                model.classes_
-            )
-
-            if 1 in classes:
-
-                positive_probability = probability[
-
-                    :,
-
-                    classes.index(1)
-
-                ]
-
-                fpr, tpr, _ = roc_curve(
-
-                    y_test,
-
-                    positive_probability
-
-                )
-
-                st.markdown("---")
-
-                st.subheader(
-                    "ROC Curve"
-                )
-
-                fig, ax = plt.subplots(
-                    figsize=(6, 4)
-                )
-
-                ax.plot(
-
-                    fpr,
-
-                    tpr,
-
-                    label=(
-                        f"AUC = {metrics['ROC-AUC']:.4f}"
-                    )
-
-                )
-
-                ax.plot(
-
-                    [0, 1],
-
-                    [0, 1],
-
-                    linestyle="--"
-
-                )
-
-                ax.set_xlabel(
-                    "False Positive Rate"
-                )
-
-                ax.set_ylabel(
-                    "True Positive Rate"
-                )
-
-                ax.set_title(
-                    "Receiver Operating Characteristic"
-                )
-
-                ax.legend()
-
-                st.pyplot(fig)
-
-                plt.close(fig)
-
-        except Exception as error:
-
-            st.warning(
-                f"ROC curve unavailable: {error}"
-            )
-
-
-# =========================================================
-# 26. SUBJECT-DISJOINT EVALUATION
-# =========================================================
-
-elif page == "Subject-Disjoint Evaluation":
-
-    st.subheader(
-        "Subject-Disjoint Evaluation"
+    download_csv(
+        results,
+        "model_comparison_results.csv",
+        "comparison_download"
     )
 
-    st.write(
-        "Five-fold GroupKFold evaluation. "
-        "All five folds are evaluated independently."
+
+# =========================================================
+# SHAP EXPLAINABILITY
+# =========================================================
+
+elif page == "SHAP Explainability":
+
+    st.title("SHAP Explainability")
+
+    if not st.session_state.trained:
+
+        st.warning(
+            "Train all models first."
+        )
+
+        st.stop()
+
+    selected_name = st.selectbox(
+        "Select Model for SHAP",
+        list(st.session_state.models.keys())
     )
 
     st.caption(
-        "Each fold uses different training and testing subjects. "
-        "No subject is allowed to appear in both sets."
+        "SHAP explains how voice features influence the selected model's output."
     )
 
-    if st.button(
-
-        "Run Five-Fold Subject-Disjoint Evaluation",
-
-        use_container_width=True
-
-    ):
+    if st.button("Calculate SHAP Values"):
 
         try:
 
-            groups = (
-                df["subject_id"]
-                .astype(str)
-                .reset_index(drop=True)
+            import shap
+
+            model = st.session_state.models[selected_name]
+
+            X_train = st.session_state.X_train
+            X_test = st.session_state.X_test
+
+            features = list(X_train.columns)
+
+            background_df = X_train.sample(
+                min(20, len(X_train)),
+                random_state=42
             )
 
-            with st.spinner(
-                "Running complete five-fold evaluation..."
-            ):
+            explain_df = X_test.iloc[
+                :min(25, len(X_test))
+            ].copy()
 
-                fold_df, summary_df = (
-                    run_subject_disjoint_evaluation(
-                        X.reset_index(drop=True),
-                        y.reset_index(drop=True),
-                        groups
+            background = background_df.to_numpy(
+                dtype=float
+            )
+
+            explain_data = explain_df.to_numpy(
+                dtype=float
+            )
+
+            def prediction_function(values):
+
+                values = np.asarray(values)
+
+                input_df = pd.DataFrame(
+                    values,
+                    columns=features
+                )
+
+                if hasattr(model, "predict_proba"):
+
+                    probabilities = model.predict_proba(
+                        input_df
                     )
+
+                    classes = list(model.classes_)
+
+                    if 1 in classes:
+
+                        return probabilities[
+                            :,
+                            classes.index(1)
+                        ]
+
+                return model.predict(
+                    input_df
+                ).astype(float)
+
+            with st.spinner("Calculating SHAP values..."):
+
+                explainer = shap.KernelExplainer(
+                    prediction_function,
+                    background
                 )
 
-            st.session_state.subject_folds = fold_df
-
-            st.session_state.subject_metrics = summary_df
-
-            st.session_state.subject_info = {
-
-                "records": len(df),
-
-                "subjects": groups.nunique(),
-
-                "folds": 5,
-
-                "overlap": int(
-                    fold_df["Subject Overlap"].sum()
+                raw_values = explainer.shap_values(
+                    explain_data,
+                    nsamples=100
                 )
 
-            }
+            if isinstance(raw_values, list):
 
-            st.success(
-                "All five folds completed successfully."
+                shap_values = np.asarray(
+                    raw_values[1]
+                    if len(raw_values) > 1
+                    else raw_values[0]
+                )
+
+            else:
+
+                shap_values = np.asarray(
+                    raw_values
+                )
+
+                if shap_values.ndim == 3:
+
+                    if shap_values.shape[-1] == 2:
+
+                        shap_values = shap_values[:, :, 1]
+
+                    elif shap_values.shape[0] == 2:
+
+                        shap_values = shap_values[1]
+
+            if shap_values.ndim == 1:
+
+                shap_values = shap_values.reshape(
+                    1,
+                    -1
+                )
+
+            if shap_values.shape[1] != len(features):
+
+                st.error(
+                    "SHAP output does not match the feature columns."
+                )
+
+                st.stop()
+
+            importance = np.abs(
+                shap_values
+            ).mean(axis=0)
+
+            importance_df = pd.DataFrame({
+
+                "Feature": features,
+
+                "Mean Absolute SHAP": importance
+
+            }).sort_values(
+                "Mean Absolute SHAP",
+                ascending=False
             )
 
-        except Exception as error:
+            st.subheader(
+                f"{selected_name} - Feature Importance"
+            )
+
+            top_n = st.slider(
+                "Number of features",
+                min_value=1,
+                max_value=len(features),
+                value=min(15, len(features))
+            )
+
+            top_features = importance_df.head(
+                top_n
+            )
+
+            fig, ax = plt.subplots(figsize=(9, 5))
+
+            ax.barh(
+                top_features["Feature"][::-1],
+                top_features["Mean Absolute SHAP"][::-1]
+            )
+
+            ax.set_xlabel(
+                "Mean Absolute SHAP Value"
+            )
+
+            st.pyplot(fig)
+            plt.close(fig)
+
+            st.subheader("SHAP Summary Plot")
+
+            fig = plt.figure(figsize=(9, 5))
+
+            shap.summary_plot(
+                shap_values,
+                explain_data,
+                feature_names=features,
+                show=False
+            )
+
+            st.pyplot(
+                fig,
+                clear_figure=True
+            )
+
+            plt.close(fig)
+
+            st.subheader("Feature Importance Table")
+
+            st.dataframe(
+                importance_df,
+                use_container_width=True
+            )
+
+            download_csv(
+                importance_df,
+                "shap_feature_importance.csv",
+                "shap_download"
+            )
+
+        except ImportError:
 
             st.error(
-                f"Subject-disjoint evaluation failed: {error}"
+                "SHAP is not installed. Run: pip install shap"
             )
 
-    # ---------------------------------------------
-    # DISPLAY SUBJECT RESULTS
-    # ---------------------------------------------
+        except Exception as e:
 
-    if st.session_state.subject_metrics is not None:
-
-        summary_df = st.session_state.subject_metrics
-
-        fold_df = st.session_state.subject_folds
-
-        info = st.session_state.subject_info
-
-        st.markdown("---")
-
-        c1, c2, c3 = st.columns(3)
-
-        c1.metric(
-            "Total Records",
-            info["records"]
-        )
-
-        c2.metric(
-            "Unique Subjects",
-            info["subjects"]
-        )
-
-        c3.metric(
-            "Evaluation Folds",
-            info["folds"]
-        )
-
-        st.metric(
-            "Total Subject Overlap",
-            info["overlap"]
-        )
-
-        st.success(
-            "Subject leakage check passed."
-            if info["overlap"] == 0
-            else "Subject overlap detected."
-        )
-
-        st.markdown("---")
-
-        st.subheader(
-            "Five-Fold Mean and Standard Deviation"
-        )
-
-        st.dataframe(
-
-            summary_df,
-
-            use_container_width=True,
-
-            hide_index=True
-
-        )
-
-        st.markdown("---")
-
-        st.subheader(
-            "Fold-wise Evaluation Results"
-        )
-
-        selected_model = st.selectbox(
-
-            "Select Model for Fold Comparison",
-
-            MODEL_NAMES,
-
-            key="subject_model_select"
-
-        )
-
-        selected_folds = fold_df[
-
-            fold_df["Model"] == selected_model
-
-        ].sort_values("Fold")
-
-        st.dataframe(
-
-            selected_folds,
-
-            use_container_width=True,
-
-            hide_index=True
-
-        )
-
-        st.markdown("---")
-
-        st.subheader(
-            "Subject-Disjoint Accuracy Comparison"
-        )
-
-        accuracy_chart = summary_df.set_index(
-            "Model"
-        )[
-            [
-                "Accuracy Mean",
-                "Accuracy Std"
-            ]
-        ]
-
-        st.bar_chart(
-            accuracy_chart,
-            use_container_width=True
-        )
-
-        st.markdown("---")
-
-        st.subheader(
-            "Download Subject-Disjoint Results"
-        )
-
-        st.download_button(
-
-            "Download Five-Fold Summary",
-
-            data=summary_df.to_csv(
-                index=False
-            ).encode("utf-8"),
-
-            file_name="subject_disjoint_summary.csv",
-
-            mime="text/csv"
-
-        )
-
-        st.download_button(
-
-            "Download Fold-wise Results",
-
-            data=fold_df.to_csv(
-                index=False
-            ).encode("utf-8"),
-
-            file_name="subject_disjoint_fold_results.csv",
-
-            mime="text/csv"
-
-        )
+            st.error(
+                f"SHAP Error: {e}"
+            )
 
 
 # =========================================================
-# 27. MODEL INFORMATION
+# MODEL EVALUATION
 # =========================================================
 
-elif page == "Model Information":
+elif page == "Model Evaluation":
 
-    st.subheader(
-        "Machine Learning Models"
+    st.title("Model Evaluation")
+
+    if not st.session_state.trained:
+
+        st.warning(
+            "Train all models first."
+        )
+
+        st.stop()
+
+    selected_name = st.selectbox(
+        "Select Model",
+        list(st.session_state.models.keys())
     )
 
-    individual = {
-
-        "Logistic Regression":
-
-            "A linear classification algorithm that estimates "
-            "the relationship between voice features and the target class.",
-
-        "SVM":
-
-            "Support Vector Machine identifies a decision boundary "
-            "between Healthy and Parkinson's classes.",
-
-        "KNN":
-
-            "K-Nearest Neighbors predicts a class based on "
-            "nearby training samples.",
-
-        "Decision Tree":
-
-            "A tree-based classifier that makes predictions "
-            "using feature-based decision rules.",
-
-        "Random Forest":
-
-            "An ensemble of decision trees that combines "
-            "multiple tree predictions."
-
-    }
-
-    ensemble = {
-
-        "Hard Voting":
-
-            "Combines predicted classes from five base models "
-            "using majority voting.",
-
-        "Soft Voting":
-
-            "Combines class probabilities from five base models "
-            "and selects the class with the highest average probability.",
-
-        "Stacking":
-
-            "Uses predictions from five base models as input "
-            "to a Logistic Regression meta-model."
-
-    }
-
-    st.markdown(
-        "### Individual Models"
-    )
-
-    for name, description in individual.items():
-
-        with st.expander(name):
-
-            st.write(description)
-
-    st.markdown(
-        "### Ensemble Models"
-    )
-
-    for name, description in ensemble.items():
-
-        with st.expander(name):
-
-            st.write(description)
-
-    st.markdown("---")
-
-    st.subheader(
-        "Dataset Details"
-    )
-
-    c1, c2, c3 = st.columns(3)
-
-    c1.metric(
-        "Records",
-        len(df)
-    )
-
-    c2.metric(
-        "Voice Features",
-        len(feature_columns)
-    )
-
-    c3.metric(
-        "Unique Subjects",
-        df["subject_id"].nunique()
-    )
-
-    st.write(
-        "Target Column: status"
-    )
-
-    st.write(
-        "Class 0: Healthy"
-    )
-
-    st.write(
-        "Class 1: Parkinson's Disease"
-    )
-
-    st.markdown("---")
-
-    st.subheader(
-        "System Capabilities"
-    )
-
-    capabilities = [
-
-        "Manual voice feature entry",
-
-        "CSV voice feature upload",
-
-        "Eight-model prediction comparison",
-
-        "Healthy and Parkinson's confidence scores",
-
-        "Model agreement analysis",
-
-        "SHAP-based feature explanation",
-
-        "Random split evaluation",
-
-        "Five-fold subject-disjoint evaluation",
-
-        "Mean and standard deviation reporting",
-
-        "Fold-wise performance comparison",
-
-        "Downloadable evaluation results"
-
+    model = st.session_state.models[
+        selected_name
     ]
 
-    for capability in capabilities:
+    X_test = st.session_state.X_test
+    y_test = st.session_state.y_test
 
-        st.write(
-            "✓ " + capability
+    predictions = model.predict(
+        X_test
+    )
+
+    probabilities = get_probability(
+        model,
+        X_test
+    )
+
+    metrics = calculate_metrics(
+        model,
+        X_test,
+        y_test
+    )
+
+    st.subheader("Evaluation Metrics")
+
+    metric_names = [
+        "Accuracy",
+        "Precision",
+        "Recall",
+        "F1-Score",
+        "ROC-AUC",
+        "MCC"
+    ]
+
+    cols = st.columns(3)
+
+    for i, name in enumerate(metric_names):
+
+        value = metrics[name]
+
+        display = (
+            "N/A"
+            if pd.isna(value)
+            else f"{value:.4f}"
+        )
+
+        cols[i % 3].metric(
+            name,
+            display
+        )
+
+    st.divider()
+
+    st.subheader("Confusion Matrix")
+
+    cm = confusion_matrix(
+        y_test,
+        predictions,
+        labels=[0, 1]
+    )
+
+    fig, ax = plt.subplots(figsize=(5, 4))
+
+    ax.imshow(cm)
+
+    ax.set_xticks(
+        [0, 1],
+        labels=["Healthy", "Parkinson's"]
+    )
+
+    ax.set_yticks(
+        [0, 1],
+        labels=["Healthy", "Parkinson's"]
+    )
+
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+
+    for i in range(2):
+
+        for j in range(2):
+
+            ax.text(
+                j,
+                i,
+                str(cm[i, j]),
+                ha="center",
+                va="center"
+            )
+
+    st.pyplot(fig)
+    plt.close(fig)
+
+    st.divider()
+
+    st.subheader("Classification Report")
+
+    report = classification_report(
+        y_test,
+        predictions,
+        labels=[0, 1],
+        target_names=[
+            "Healthy",
+            "Parkinson's"
+        ],
+        output_dict=True,
+        zero_division=0
+    )
+
+    report_df = pd.DataFrame(
+        report
+    ).transpose()
+
+    st.dataframe(
+        report_df,
+        use_container_width=True
+    )
+
+    if probabilities is not None:
+
+        st.subheader("ROC Curve")
+
+        fpr, tpr, _ = roc_curve(
+            y_test,
+            probabilities
+        )
+
+        auc_value = roc_auc_score(
+            y_test,
+            probabilities
+        )
+
+        fig, ax = plt.subplots(figsize=(6, 4))
+
+        ax.plot(
+            fpr,
+            tpr,
+            label=f"AUC = {auc_value:.4f}"
+        )
+
+        ax.plot(
+            [0, 1],
+            [0, 1],
+            linestyle="--"
+        )
+
+        ax.set_xlabel(
+            "False Positive Rate"
+        )
+
+        ax.set_ylabel(
+            "True Positive Rate"
+        )
+
+        ax.legend()
+
+        st.pyplot(fig)
+        plt.close(fig)
+
+    else:
+
+        st.info(
+            "ROC Curve is not available for this model."
         )
 
 
-# =========================================================
-# 28. FOOTER
-# =========================================================
-
-st.markdown("---")
-
-st.caption(
-    "Parkinson's Disease Voice Classification System | "
-    "Machine Learning and Explainable AI Research"
-)
-
-st.caption(
-    "This research application is for experimental purposes "
-    "and is not a substitute for professional medical diagnosis."
-)
