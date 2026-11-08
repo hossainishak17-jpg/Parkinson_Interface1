@@ -1,3 +1,4 @@
+
 import os
 import hashlib
 import warnings
@@ -48,145 +49,229 @@ st.set_page_config(
 
 
 # =========================================================
-# WHITE BACKGROUND + BLACK TEXT
+# CLEAN WHITE INTERFACE
 # =========================================================
 
 st.markdown("""
 <style>
 
-/* Main page */
-.stApp {
+/* Main application */
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"] {
     background-color: #ffffff !important;
-    color: #000000 !important;
+    color: #111111 !important;
 }
 
 /* Main content */
 .main .block-container {
     background-color: #ffffff !important;
+    color: #111111 !important;
+    padding-top: 2rem;
 }
 
 /* Sidebar */
 section[data-testid="stSidebar"] {
-    background-color: #f2f2f2 !important;
+    background-color: #f1f4f8 !important;
+    border-right: 1px solid #d5dce5 !important;
 }
 
-section[data-testid="stSidebar"] * {
-    color: #000000 !important;
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] div {
+    color: #111111 !important;
 }
 
 /* Headings */
 h1, h2, h3, h4, h5, h6 {
-    color: #000000 !important;
+    color: #111111 !important;
+    font-weight: 700 !important;
 }
 
 /* General text */
-p, label, span, li {
-    color: #000000;
+.stApp p,
+.stApp label,
+.stApp li,
+.stApp small {
+    color: #111111 !important;
 }
 
 /* Metrics */
-div[data-testid="stMetric"] {
-    background-color: #f5f5f5 !important;
-    border: 1px solid #cccccc !important;
-    padding: 14px;
-    border-radius: 8px;
+[data-testid="stMetric"] {
+    background-color: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 10px !important;
+    padding: 16px !important;
 }
 
-div[data-testid="stMetricLabel"],
-div[data-testid="stMetricValue"],
-div[data-testid="stMetricDelta"] {
-    color: #000000 !important;
-}
-
-/* Buttons */
-.stButton > button {
-    background-color: #e8e8e8 !important;
-    color: #000000 !important;
-    border: 1px solid #888888 !important;
-    border-radius: 6px;
-    font-weight: 600;
-}
-
-.stButton > button:hover {
-    background-color: #d5d5d5 !important;
-    color: #000000 !important;
-    border: 1px solid #333333 !important;
-}
-
-/* Download button */
-.stDownloadButton > button {
-    background-color: #eeeeee !important;
-    color: #000000 !important;
-    border: 1px solid #888888 !important;
-}
-
-/* Input fields */
-input, textarea {
-    background-color: #ffffff !important;
-    color: #000000 !important;
-    border: 1px solid #999999 !important;
-}
-
-/* Selectbox */
-div[data-baseweb="select"] {
-    background-color: #ffffff !important;
-}
-
-div[data-baseweb="select"] * {
-    color: #000000 !important;
-}
-
-/* File uploader */
-div[data-testid="stFileUploader"] {
-    background-color: #f7f7f7 !important;
-    border: 1px solid #cccccc !important;
-    border-radius: 8px;
-    padding: 10px;
-}
-
-div[data-testid="stFileUploader"] * {
-    color: #000000 !important;
-}
-
-/* Dataframe */
-div[data-testid="stDataFrame"] {
-    background-color: #ffffff !important;
+[data-testid="stMetricLabel"],
+[data-testid="stMetricValue"],
+[data-testid="stMetricDelta"] {
+    color: #111111 !important;
 }
 
 /* Expander */
-div[data-testid="stExpander"] {
-    background-color: #f7f7f7 !important;
-    border: 1px solid #cccccc !important;
+[data-testid="stExpander"] {
+    background-color: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 9px !important;
 }
 
-div[data-testid="stExpander"] * {
-    color: #000000;
+[data-testid="stExpander"] details {
+    background-color: #f8fafc !important;
 }
 
-/* Radio buttons */
-div[role="radiogroup"] label {
+[data-testid="stExpander"] summary {
+    background-color: #e8eef5 !important;
+    color: #111111 !important;
+}
+
+[data-testid="stExpander"] summary span,
+[data-testid="stExpander"] summary p {
+    color: #111111 !important;
+}
+
+[data-testid="stExpander"] details > div {
+    background-color: #f8fafc !important;
+    color: #111111 !important;
+}
+
+/* Dataframes and tables */
+[data-testid="stDataFrame"],
+[data-testid="stTable"] {
+    background-color: #ffffff !important;
+    color: #111111 !important;
+    border: 1px solid #d5dce5 !important;
+    border-radius: 7px !important;
+}
+
+/* Input fields */
+.stTextInput input,
+.stNumberInput input,
+.stTextArea textarea {
+    background-color: #ffffff !important;
+    color: #111111 !important;
+    border: 1px solid #94a3b8 !important;
+    border-radius: 6px !important;
+}
+
+/* Selectbox */
+[data-baseweb="select"] > div {
+    background-color: #ffffff !important;
+    color: #111111 !important;
+    border: 1px solid #94a3b8 !important;
+}
+
+[data-baseweb="select"] span {
+    color: #111111 !important;
+}
+
+/* Dropdown options */
+[role="listbox"],
+[role="option"] {
+    background-color: #ffffff !important;
+    color: #111111 !important;
+}
+
+[role="option"]:hover {
+    background-color: #e2e8f0 !important;
+}
+
+/* File uploader */
+[data-testid="stFileUploader"] {
+    background-color: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 9px !important;
+    padding: 12px !important;
+}
+
+[data-testid="stFileUploader"] section {
+    background-color: #ffffff !important;
+    border: 1px dashed #94a3b8 !important;
+    border-radius: 7px !important;
+}
+
+[data-testid="stFileUploader"] * {
+    color: #111111 !important;
+}
+
+/* Buttons */
+.stButton > button,
+.stDownloadButton > button {
+    background-color: #e2e8f0 !important;
+    color: #111111 !important;
+    border: 1px solid #94a3b8 !important;
+    border-radius: 7px !important;
+    font-weight: 600 !important;
+}
+
+.stButton > button:hover,
+.stDownloadButton > button:hover {
+    background-color: #cbd5e1 !important;
     color: #000000 !important;
+    border-color: #64748b !important;
 }
 
-/* Slider */
-div[data-testid="stSlider"] {
-    color: #000000 !important;
+/* Radio buttons and checkboxes */
+[role="radiogroup"] label,
+[data-testid="stCheckbox"] label {
+    color: #111111 !important;
 }
 
 /* Alerts */
-div[data-testid="stAlert"] {
-    background-color: #f5f5f5 !important;
-    color: #000000 !important;
+[data-testid="stAlert"] {
+    background-color: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #111111 !important;
+}
+
+[data-testid="stAlert"] p,
+[data-testid="stAlert"] span {
+    color: #111111 !important;
 }
 
 /* Captions */
-.stCaption, [data-testid="stCaptionContainer"] {
-    color: #333333 !important;
+[data-testid="stCaptionContainer"],
+.stCaption {
+    color: #475569 !important;
 }
 
-/* Divider */
+/* Slider */
+[data-testid="stSlider"] {
+    color: #111111 !important;
+}
+
+/* Tabs */
+[data-testid="stTabs"] button {
+    color: #111111 !important;
+}
+
+[data-testid="stTabs"] button[aria-selected="true"] {
+    color: #1d4ed8 !important;
+}
+
+/* Progress bar */
+[data-testid="stProgress"] {
+    background-color: #e2e8f0 !important;
+}
+
+/* Dividers */
 hr {
-    border-color: #cccccc !important;
+    border-color: #cbd5e1 !important;
+}
+
+/* Code blocks */
+.stCode,
+pre,
+code {
+    background-color: #f1f5f9 !important;
+    color: #111111 !important;
+}
+
+/* Links */
+a {
+    color: #1d4ed8 !important;
 }
 
 </style>
@@ -276,19 +361,12 @@ def load_dataset(uploaded_file):
     if uploaded_file is not None:
 
         uploaded_file.seek(0)
-
         filename = uploaded_file.name.lower()
 
         if filename.endswith(".csv"):
-
             df = pd.read_csv(uploaded_file)
-
         else:
-
-            df = pd.read_csv(
-                uploaded_file,
-                header=None
-            )
+            df = pd.read_csv(uploaded_file, header=None)
 
     elif os.path.exists("parkinsons.csv"):
 
@@ -296,10 +374,7 @@ def load_dataset(uploaded_file):
 
     elif os.path.exists("parkinsons.data"):
 
-        df = pd.read_csv(
-            "parkinsons.data",
-            header=None
-        )
+        df = pd.read_csv("parkinsons.data", header=None)
 
     else:
         return None
@@ -309,16 +384,10 @@ def load_dataset(uploaded_file):
         for c in df.columns
     ]
 
-    lower_columns = [
-        c.lower() for c in df.columns
-    ]
+    lower_columns = [c.lower() for c in df.columns]
 
-    # Headerless UCI dataset
-    if "status" not in lower_columns:
-
-        if df.shape[1] == 24:
-
-            df.columns = UCI_COLUMNS
+    if "status" not in lower_columns and df.shape[1] == 24:
+        df.columns = UCI_COLUMNS
 
     return df
 
@@ -331,29 +400,17 @@ def prepare_dataset(df):
 
     data = df.copy()
 
-    data.columns = [
-        str(c).strip()
-        for c in data.columns
-    ]
+    data.columns = [str(c).strip() for c in data.columns]
 
     target_col = next(
-        (
-            c for c in data.columns
-            if c.lower() == "status"
-        ),
+        (c for c in data.columns if c.lower() == "status"),
         None
     )
 
     if target_col is None:
+        raise ValueError("Target column 'status' was not found.")
 
-        raise ValueError(
-            "Target column 'status' was not found."
-        )
-
-    y = pd.to_numeric(
-        data[target_col],
-        errors="coerce"
-    )
+    y = pd.to_numeric(data[target_col], errors="coerce")
 
     valid_rows = y.notna()
 
@@ -361,24 +418,16 @@ def prepare_dataset(df):
     y = y.loc[valid_rows].astype(int)
 
     if not set(y.unique()).issubset({0, 1}):
-
-        raise ValueError(
-            "Status must contain only 0 and 1."
-        )
+        raise ValueError("Status must contain only 0 and 1.")
 
     if set(y.unique()) != {0, 1}:
-
         raise ValueError(
             "Both Healthy (0) and Parkinson's (1) classes are required."
         )
 
     excluded = {
-        "status",
-        "name",
-        "subject_id",
-        "subject",
-        "patient_id",
-        "id"
+        "status", "name", "subject_id",
+        "subject", "patient_id", "id"
     }
 
     feature_columns = [
@@ -389,33 +438,16 @@ def prepare_dataset(df):
     X = data[feature_columns].copy()
 
     for col in X.columns:
+        X[col] = pd.to_numeric(X[col], errors="coerce")
 
-        X[col] = pd.to_numeric(
-            X[col],
-            errors="coerce"
-        )
-
-    X = X.dropna(
-        axis=1,
-        how="all"
-    )
-
-    X = X.loc[
-        :,
-        ~X.columns.duplicated()
-    ]
+    X = X.dropna(axis=1, how="all")
+    X = X.loc[:, ~X.columns.duplicated()]
 
     if X.empty:
-
-        raise ValueError(
-            "No valid numeric features found."
-        )
+        raise ValueError("No valid numeric features found.")
 
     if y.value_counts().min() < 2:
-
-        raise ValueError(
-            "Each class needs at least two records."
-        )
+        raise ValueError("Each class needs at least two records.")
 
     return X, y
 
@@ -426,21 +458,12 @@ def prepare_dataset(df):
 
 def create_models(minority_count, train_count):
 
-    cv_splits = min(
-        5,
-        int(minority_count)
-    )
+    cv_splits = min(5, int(minority_count))
 
     if cv_splits < 2:
+        raise ValueError("Not enough samples for Stacking.")
 
-        raise ValueError(
-            "Not enough samples for Stacking."
-        )
-
-    knn_neighbors = min(
-        3,
-        int(train_count)
-    )
+    knn_neighbors = min(3, int(train_count))
 
     base_models = [
 
@@ -449,13 +472,10 @@ def create_models(minority_count, train_count):
             Pipeline([
                 ("imputer", SimpleImputer(strategy="median")),
                 ("scaler", StandardScaler()),
-                (
-                    "model",
-                    LogisticRegression(
-                        max_iter=2000,
-                        random_state=42
-                    )
-                )
+                ("model", LogisticRegression(
+                    max_iter=2000,
+                    random_state=42
+                ))
             ])
         ),
 
@@ -464,13 +484,10 @@ def create_models(minority_count, train_count):
             Pipeline([
                 ("imputer", SimpleImputer(strategy="median")),
                 ("scaler", StandardScaler()),
-                (
-                    "model",
-                    SVC(
-                        probability=True,
-                        random_state=42
-                    )
-                )
+                ("model", SVC(
+                    probability=True,
+                    random_state=42
+                ))
             ])
         ),
 
@@ -479,12 +496,9 @@ def create_models(minority_count, train_count):
             Pipeline([
                 ("imputer", SimpleImputer(strategy="median")),
                 ("scaler", StandardScaler()),
-                (
-                    "model",
-                    KNeighborsClassifier(
-                        n_neighbors=knn_neighbors
-                    )
-                )
+                ("model", KNeighborsClassifier(
+                    n_neighbors=knn_neighbors
+                ))
             ])
         ),
 
@@ -492,13 +506,10 @@ def create_models(minority_count, train_count):
             "dt",
             Pipeline([
                 ("imputer", SimpleImputer(strategy="median")),
-                (
-                    "model",
-                    DecisionTreeClassifier(
-                        random_state=42,
-                        class_weight="balanced"
-                    )
-                )
+                ("model", DecisionTreeClassifier(
+                    random_state=42,
+                    class_weight="balanced"
+                ))
             ])
         ),
 
@@ -506,60 +517,43 @@ def create_models(minority_count, train_count):
             "rf",
             Pipeline([
                 ("imputer", SimpleImputer(strategy="median")),
-                (
-                    "model",
-                    RandomForestClassifier(
-                        n_estimators=200,
-                        random_state=42,
-                        class_weight="balanced"
-                    )
-                )
+                ("model", RandomForestClassifier(
+                    n_estimators=200,
+                    random_state=42,
+                    class_weight="balanced"
+                ))
             ])
         )
     ]
 
     models = {
 
-        "Logistic Regression":
-            clone(base_models[0][1]),
+        "Logistic Regression": clone(base_models[0][1]),
+        "SVM": clone(base_models[1][1]),
+        "KNN": clone(base_models[2][1]),
+        "Decision Tree": clone(base_models[3][1]),
+        "Random Forest": clone(base_models[4][1]),
 
-        "SVM":
-            clone(base_models[1][1]),
+        "Hard Voting": VotingClassifier(
+            estimators=base_models,
+            voting="hard"
+        ),
 
-        "KNN":
-            clone(base_models[2][1]),
+        "Soft Voting": VotingClassifier(
+            estimators=base_models,
+            voting="soft"
+        ),
 
-        "Decision Tree":
-            clone(base_models[3][1]),
-
-        "Random Forest":
-            clone(base_models[4][1]),
-
-        "Hard Voting":
-            VotingClassifier(
-                estimators=base_models,
-                voting="hard"
+        "Stacking": StackingClassifier(
+            estimators=base_models,
+            final_estimator=LogisticRegression(max_iter=2000),
+            cv=StratifiedKFold(
+                n_splits=cv_splits,
+                shuffle=True,
+                random_state=42
             ),
-
-        "Soft Voting":
-            VotingClassifier(
-                estimators=base_models,
-                voting="soft"
-            ),
-
-        "Stacking":
-            StackingClassifier(
-                estimators=base_models,
-                final_estimator=LogisticRegression(
-                    max_iter=2000
-                ),
-                cv=StratifiedKFold(
-                    n_splits=cv_splits,
-                    shuffle=True,
-                    random_state=42
-                ),
-                stack_method="predict_proba"
-            )
+            stack_method="predict_proba"
+        )
     }
 
     return models
@@ -576,15 +570,10 @@ def get_probability(model, X):
         if hasattr(model, "predict_proba"):
 
             probabilities = model.predict_proba(X)
-
             classes = list(model.classes_)
 
             if 1 in classes:
-
-                return probabilities[
-                    :,
-                    classes.index(1)
-                ]
+                return probabilities[:, classes.index(1)]
 
         if hasattr(model, "decision_function"):
 
@@ -595,18 +584,11 @@ def get_probability(model, X):
 
             if scores.ndim == 1:
 
-                scores = np.clip(
-                    scores,
-                    -500,
-                    500
-                )
+                scores = np.clip(scores, -500, 500)
 
-                return 1 / (
-                    1 + np.exp(-scores)
-                )
+                return 1 / (1 + np.exp(-scores))
 
     except Exception:
-
         return None
 
     return None
@@ -619,60 +601,36 @@ def get_probability(model, X):
 def calculate_metrics(model, X_test, y_test):
 
     predictions = model.predict(X_test)
-
-    probabilities = get_probability(
-        model,
-        X_test
-    )
+    probabilities = get_probability(model, X_test)
 
     auc = np.nan
 
-    if (
-        probabilities is not None
-        and len(np.unique(y_test)) == 2
-    ):
+    if probabilities is not None and len(np.unique(y_test)) == 2:
 
         try:
-
-            auc = roc_auc_score(
-                y_test,
-                probabilities
-            )
-
+            auc = roc_auc_score(y_test, probabilities)
         except Exception:
             pass
 
     return {
 
-        "Accuracy": accuracy_score(
-            y_test,
-            predictions
-        ),
+        "Accuracy": accuracy_score(y_test, predictions),
 
         "Precision": precision_score(
-            y_test,
-            predictions,
-            zero_division=0
+            y_test, predictions, zero_division=0
         ),
 
         "Recall": recall_score(
-            y_test,
-            predictions,
-            zero_division=0
+            y_test, predictions, zero_division=0
         ),
 
         "F1-Score": f1_score(
-            y_test,
-            predictions,
-            zero_division=0
+            y_test, predictions, zero_division=0
         ),
 
         "ROC-AUC": auc,
 
-        "MCC": matthews_corrcoef(
-            y_test,
-            predictions
-        )
+        "MCC": matthews_corrcoef(y_test, predictions)
     }
 
 
@@ -680,12 +638,7 @@ def calculate_metrics(model, X_test, y_test):
 # TRAIN ALL MODELS
 # =========================================================
 
-def train_all_models(
-    X_train,
-    X_test,
-    y_train,
-    y_test
-):
+def train_all_models(X_train, X_test, y_train, y_test):
 
     models = create_models(
         y_train.value_counts().min(),
@@ -702,19 +655,12 @@ def train_all_models(
 
     for i, (name, model) in enumerate(models.items()):
 
-        status.write(
-            f"Training {name}..."
-        )
+        status.write(f"Training {name}...")
 
-        model.fit(
-            X_train,
-            y_train
-        )
+        model.fit(X_train, y_train)
 
         metrics = calculate_metrics(
-            model,
-            X_test,
-            y_test
+            model, X_test, y_test
         )
 
         trained_models[name] = model
@@ -724,18 +670,11 @@ def train_all_models(
             **metrics
         })
 
-        progress.progress(
-            (i + 1) / total
-        )
+        progress.progress((i + 1) / total)
 
-    status.success(
-        "All models trained successfully."
-    )
+    status.success("All models trained successfully.")
 
-    return (
-        trained_models,
-        pd.DataFrame(result_rows)
-    )
+    return trained_models, pd.DataFrame(result_rows)
 
 
 # =========================================================
@@ -746,30 +685,22 @@ def prepare_testing_csv(df, feature_names):
 
     data = df.copy()
 
-    data.columns = [
-        str(c).strip()
-        for c in data.columns
-    ]
+    data.columns = [str(c).strip() for c in data.columns]
 
     actual_status = None
 
     status_col = next(
-        (
-            c for c in data.columns
-            if c.lower() == "status"
-        ),
+        (c for c in data.columns if c.lower() == "status"),
         None
     )
 
     if status_col is not None:
 
         actual_status = pd.to_numeric(
-            data[status_col],
-            errors="coerce"
+            data[status_col], errors="coerce"
         )
 
         if actual_status.isna().any():
-
             raise ValueError(
                 "Testing status contains missing or invalid labels."
             )
@@ -777,25 +708,15 @@ def prepare_testing_csv(df, feature_names):
         actual_status = actual_status.astype(int)
 
         if not set(actual_status.unique()).issubset({0, 1}):
-
-            raise ValueError(
-                "Testing status must contain only 0 and 1."
-            )
+            raise ValueError("Testing status must contain only 0 and 1.")
 
     ignored = {
-        "status",
-        "name",
-        "subject_id",
-        "subject",
-        "patient_id",
-        "id"
+        "status", "name", "subject_id",
+        "subject", "patient_id", "id"
     }
 
     feature_data = data[
-        [
-            c for c in data.columns
-            if c.lower() not in ignored
-        ]
+        [c for c in data.columns if c.lower() not in ignored]
     ].copy()
 
     missing = [
@@ -804,24 +725,16 @@ def prepare_testing_csv(df, feature_names):
     ]
 
     if missing:
+        raise ValueError("Missing features: " + ", ".join(missing))
 
-        raise ValueError(
-            "Missing features: " + ", ".join(missing)
-        )
-
-    feature_data = feature_data[
-        feature_names
-    ].copy()
+    feature_data = feature_data[feature_names].copy()
 
     for col in feature_names:
-
         feature_data[col] = pd.to_numeric(
-            feature_data[col],
-            errors="coerce"
+            feature_data[col], errors="coerce"
         )
 
     if feature_data.isna().all(axis=1).any():
-
         raise ValueError(
             "Some testing rows contain no valid numeric features."
         )
@@ -848,9 +761,7 @@ def download_csv(df, filename, key):
 # SIDEBAR
 # =========================================================
 
-st.sidebar.title(
-    "Parkinson's Classification"
-)
+st.sidebar.title("Parkinson's Classification")
 
 page = st.sidebar.radio(
     "Navigation",
@@ -876,9 +787,7 @@ uploaded_dataset = st.sidebar.file_uploader(
 
 try:
 
-    raw_data = load_dataset(
-        uploaded_dataset
-    )
+    raw_data = load_dataset(uploaded_dataset)
 
     if raw_data is None:
 
@@ -901,7 +810,6 @@ try:
         X, y = prepare_dataset(raw_data)
 
         st.session_state.data_hash = current_hash
-
         st.session_state.X = X.copy()
         st.session_state.y = y.copy()
 
@@ -914,10 +822,7 @@ try:
 
 except Exception as e:
 
-    st.error(
-        f"Dataset Error: {e}"
-    )
-
+    st.error(f"Dataset Error: {e}")
     st.stop()
 
 
@@ -953,10 +858,7 @@ if st.sidebar.button(
         with st.spinner("Training all models..."):
 
             models, results = train_all_models(
-                X_train,
-                X_test,
-                y_train,
-                y_test
+                X_train, X_test, y_train, y_test
             )
 
         st.session_state.X_train = X_train
@@ -974,9 +876,7 @@ if st.sidebar.button(
         st.session_state.shap_result = None
         st.session_state.shap_model = None
 
-        st.sidebar.success(
-            "Training completed."
-        )
+        st.sidebar.success("Training completed.")
 
     except Exception as e:
 
@@ -984,15 +884,10 @@ if st.sidebar.button(
 
         st.session_state.training_error = str(e)
 
-        st.sidebar.error(
-            "Training failed."
-        )
+        st.sidebar.error("Training failed.")
 
 if st.session_state.training_error:
-
-    st.error(
-        st.session_state.training_error
-    )
+    st.error(st.session_state.training_error)
 
 
 # =========================================================
@@ -1001,31 +896,14 @@ if st.session_state.training_error:
 
 if page == "Dashboard":
 
-    st.title(
-        "Parkinson's Disease Voice Classification"
-    )
+    st.title("Parkinson's Disease Voice Classification")
 
     col1, col2, col3, col4 = st.columns(4)
 
-    col1.metric(
-        "Recordings",
-        len(raw_data)
-    )
-
-    col2.metric(
-        "Features",
-        X.shape[1]
-    )
-
-    col3.metric(
-        "Healthy",
-        int((y == 0).sum())
-    )
-
-    col4.metric(
-        "Parkinson's",
-        int((y == 1).sum())
-    )
+    col1.metric("Recordings", len(raw_data))
+    col2.metric("Features", X.shape[1])
+    col3.metric("Healthy", int((y == 0).sum()))
+    col4.metric("Parkinson's", int((y == 1).sum()))
 
     st.divider()
 
@@ -1039,8 +917,7 @@ if page == "Dashboard":
     st.subheader("Class Distribution")
 
     counts = y.value_counts().reindex(
-        [0, 1],
-        fill_value=0
+        [0, 1], fill_value=0
     )
 
     fig, ax = plt.subplots(figsize=(6, 3))
@@ -1054,10 +931,7 @@ if page == "Dashboard":
     ax.set_xlabel("Class")
     ax.set_title("Dataset Class Distribution")
 
-    ax.tick_params(
-        colors="black"
-    )
-
+    ax.tick_params(colors="black")
     ax.xaxis.label.set_color("black")
     ax.yaxis.label.set_color("black")
     ax.title.set_color("black")
@@ -1069,16 +943,9 @@ if page == "Dashboard":
     plt.close(fig)
 
     if st.session_state.trained:
-
-        st.success(
-            "Models are trained and ready."
-        )
-
+        st.success("Models are trained and ready.")
     else:
-
-        st.info(
-            "Train all models from the sidebar."
-        )
+        st.info("Train all models from the sidebar.")
 
 
 # =========================================================
@@ -1090,16 +957,10 @@ elif page == "Prediction":
     st.title("Prediction")
 
     if not st.session_state.trained:
-
-        st.warning(
-            "Train all models first."
-        )
-
+        st.warning("Train all models first.")
         st.stop()
 
-    features = list(
-        st.session_state.X_train.columns
-    )
+    features = list(st.session_state.X_train.columns)
 
     st.subheader("Upload Testing Sets")
 
@@ -1119,9 +980,7 @@ elif page == "Prediction":
 
         if len(testing_files) > 5:
 
-            st.error(
-                "Maximum 5 testing files are allowed."
-            )
+            st.error("Maximum 5 testing files are allowed.")
 
         else:
 
@@ -1136,13 +995,10 @@ elif page == "Prediction":
 
                         testing_file.seek(0)
 
-                        testing_df = pd.read_csv(
-                            testing_file
-                        )
+                        testing_df = pd.read_csv(testing_file)
 
                         X_external, actual_status = prepare_testing_csv(
-                            testing_df,
-                            features
+                            testing_df, features
                         )
 
                         st.write(
@@ -1153,20 +1009,16 @@ elif page == "Prediction":
 
                         for model_name, model in st.session_state.models.items():
 
-                            predictions = model.predict(
-                                X_external
-                            )
+                            predictions = model.predict(X_external)
 
                             probabilities = get_probability(
-                                model,
-                                X_external
+                                model, X_external
                             )
 
                             output = pd.DataFrame({
 
                                 "Row": np.arange(
-                                    1,
-                                    len(X_external) + 1
+                                    1, len(X_external) + 1
                                 ),
 
                                 "Model": model_name,
@@ -1174,17 +1026,20 @@ elif page == "Prediction":
                                 "Prediction": predictions,
 
                                 "Prediction_Label": [
-                                    "Parkinson's" if p == 1
-                                    else "Healthy"
+                                    "Parkinson's" if p == 1 else "Healthy"
                                     for p in predictions
                                 ]
                             })
 
                             if probabilities is not None:
 
-                                output[
-                                    "Parkinsons_Probability"
-                                ] = probabilities
+                                output["Parkinsons_Probability"] = probabilities
+
+                                output["Confidence_Score"] = np.where(
+                                    predictions == 1,
+                                    probabilities,
+                                    1 - probabilities
+                                )
 
                             if actual_status is not None:
 
@@ -1193,8 +1048,7 @@ elif page == "Prediction":
                                 output["Actual_Status"] = actual
 
                                 output["Actual_Label"] = [
-                                    "Parkinson's" if p == 1
-                                    else "Healthy"
+                                    "Parkinson's" if p == 1 else "Healthy"
                                     for p in actual
                                 ]
 
@@ -1203,14 +1057,10 @@ elif page == "Prediction":
                                 )
 
                                 metrics = calculate_metrics(
-                                    model,
-                                    X_external,
-                                    actual
+                                    model, X_external, actual
                                 )
 
-                                st.write(
-                                    f"**{model_name}**"
-                                )
+                                st.write(f"**{model_name}**")
 
                                 m1, m2, m3 = st.columns(3)
 
@@ -1253,9 +1103,7 @@ elif page == "Prediction":
 
                     except Exception as e:
 
-                        st.error(
-                            f"Testing Error: {e}"
-                        )
+                        st.error(f"Testing Error: {e}")
 
     else:
 
@@ -1273,11 +1121,7 @@ elif page == "Model Comparison":
     st.title("Model Comparison")
 
     if not st.session_state.trained:
-
-        st.warning(
-            "Train all models first."
-        )
-
+        st.warning("Train all models first.")
         st.stop()
 
     results = st.session_state.results.copy()
@@ -1295,27 +1139,13 @@ elif page == "Model Comparison":
 
     c1, c2, c3 = st.columns(3)
 
-    c1.metric(
-        "Accuracy",
-        f"{selected_row['Accuracy']:.4f}"
-    )
-
-    c2.metric(
-        "Precision",
-        f"{selected_row['Precision']:.4f}"
-    )
-
-    c3.metric(
-        "Recall",
-        f"{selected_row['Recall']:.4f}"
-    )
+    c1.metric("Accuracy", f"{selected_row['Accuracy']:.4f}")
+    c2.metric("Precision", f"{selected_row['Precision']:.4f}")
+    c3.metric("Recall", f"{selected_row['Recall']:.4f}")
 
     c4, c5, c6 = st.columns(3)
 
-    c4.metric(
-        "F1-Score",
-        f"{selected_row['F1-Score']:.4f}"
-    )
+    c4.metric("F1-Score", f"{selected_row['F1-Score']:.4f}")
 
     c5.metric(
         "ROC-AUC",
@@ -1323,10 +1153,7 @@ elif page == "Model Comparison":
         else f"{selected_row['ROC-AUC']:.4f}"
     )
 
-    c6.metric(
-        "MCC",
-        f"{selected_row['MCC']:.4f}"
-    )
+    c6.metric("MCC", f"{selected_row['MCC']:.4f}")
 
     st.divider()
 
@@ -1365,10 +1192,7 @@ elif page == "Model Comparison":
         colors="black"
     )
 
-    ax.tick_params(
-        axis="y",
-        colors="black"
-    )
+    ax.tick_params(axis="y", colors="black")
 
     ax.yaxis.label.set_color("black")
     ax.xaxis.label.set_color("black")
@@ -1383,9 +1207,7 @@ elif page == "Model Comparison":
     st.subheader("Selected Model Result")
 
     st.dataframe(
-        results[
-            results["Model"] == selected_model
-        ].set_index("Model"),
+        results[results["Model"] == selected_model].set_index("Model"),
         use_container_width=True
     )
 
@@ -1412,11 +1234,7 @@ elif page == "SHAP Explainability":
     st.title("SHAP Explainability")
 
     if not st.session_state.trained:
-
-        st.warning(
-            "Train all models first."
-        )
-
+        st.warning("Train all models first.")
         st.stop()
 
     selected_name = st.selectbox(
@@ -1435,16 +1253,12 @@ elif page == "SHAP Explainability":
 
             import shap
 
-            model = st.session_state.models[
-                selected_name
-            ]
+            model = st.session_state.models[selected_name]
 
             X_train = st.session_state.X_train
             X_test = st.session_state.X_test
 
-            features = list(
-                X_train.columns
-            )
+            features = list(X_train.columns)
 
             background_df = X_train.sample(
                 min(20, len(X_train)),
@@ -1455,20 +1269,12 @@ elif page == "SHAP Explainability":
                 :min(25, len(X_test))
             ].copy()
 
-            background = background_df.to_numpy(
-                dtype=float
-            )
-
-            explain_data = explain_df.to_numpy(
-                dtype=float
-            )
+            background = background_df.to_numpy(dtype=float)
+            explain_data = explain_df.to_numpy(dtype=float)
 
             def prediction_function(values):
 
-                values = np.asarray(
-                    values,
-                    dtype=float
-                )
+                values = np.asarray(values, dtype=float)
 
                 input_df = pd.DataFrame(
                     values,
@@ -1477,18 +1283,12 @@ elif page == "SHAP Explainability":
 
                 if hasattr(model, "predict_proba"):
 
-                    probabilities = model.predict_proba(
-                        input_df
-                    )
+                    probabilities = model.predict_proba(input_df)
 
                     classes = list(model.classes_)
 
                     if 1 in classes:
-
-                        return probabilities[
-                            :,
-                            classes.index(1)
-                        ]
+                        return probabilities[:, classes.index(1)]
 
                 if hasattr(model, "decision_function"):
 
@@ -1498,24 +1298,13 @@ elif page == "SHAP Explainability":
 
                     if scores.ndim == 1:
 
-                        scores = np.clip(
-                            scores,
-                            -500,
-                            500
-                        )
+                        scores = np.clip(scores, -500, 500)
 
-                        return 1 / (
-                            1 + np.exp(-scores)
-                        )
+                        return 1 / (1 + np.exp(-scores))
 
-                # Hard Voting: explain predicted class output
-                return model.predict(
-                    input_df
-                ).astype(float)
+                return model.predict(input_df).astype(float)
 
-            with st.spinner(
-                "Calculating SHAP values..."
-            ):
+            with st.spinner("Calculating SHAP values..."):
 
                 explainer = shap.KernelExplainer(
                     prediction_function,
@@ -1527,39 +1316,26 @@ elif page == "SHAP Explainability":
                     nsamples=100
                 )
 
-            # SHAP output compatibility
             if isinstance(raw_values, list):
 
-                shap_values = np.asarray(
-                    raw_values[-1]
-                )
+                shap_values = np.asarray(raw_values[-1])
 
             else:
 
-                shap_values = np.asarray(
-                    raw_values
-                )
+                shap_values = np.asarray(raw_values)
 
                 if shap_values.ndim == 3:
 
                     if shap_values.shape[-1] == 2:
-
                         shap_values = shap_values[:, :, 1]
 
                     elif shap_values.shape[0] == 2:
-
                         shap_values = shap_values[1]
 
-            shap_values = np.squeeze(
-                shap_values
-            )
+            shap_values = np.squeeze(shap_values)
 
             if shap_values.ndim == 1:
-
-                shap_values = shap_values.reshape(
-                    1,
-                    -1
-                )
+                shap_values = shap_values.reshape(1, -1)
 
             if shap_values.shape != explain_data.shape:
 
@@ -1568,14 +1344,11 @@ elif page == "SHAP Explainability":
                     f"Expected: {explain_data.shape}"
                 )
 
-            importance = np.abs(
-                shap_values
-            ).mean(axis=0)
+            importance = np.abs(shap_values).mean(axis=0)
 
             importance_df = pd.DataFrame({
 
                 "Feature": features,
-
                 "Mean Absolute SHAP": importance
 
             }).sort_values(
@@ -1593,15 +1366,11 @@ elif page == "SHAP Explainability":
 
         except ImportError:
 
-            st.error(
-                "SHAP is not installed. Run: pip install shap"
-            )
+            st.error("SHAP is not installed. Run: pip install shap")
 
         except Exception as e:
 
-            st.error(
-                f"SHAP Error: {e}"
-            )
+            st.error(f"SHAP Error: {e}")
 
     if (
         st.session_state.shap_result is not None
@@ -1624,9 +1393,7 @@ elif page == "SHAP Explainability":
             key="shap_top_n"
         )
 
-        top_features = importance_df.head(
-            top_n
-        )
+        top_features = importance_df.head(top_n)
 
         fig, ax = plt.subplots(figsize=(9, 5))
 
@@ -1635,16 +1402,10 @@ elif page == "SHAP Explainability":
             top_features["Mean Absolute SHAP"][::-1]
         )
 
-        ax.set_xlabel(
-            "Mean Absolute SHAP Value"
-        )
-
-        ax.set_title(
-            "SHAP Feature Importance"
-        )
+        ax.set_xlabel("Mean Absolute SHAP Value")
+        ax.set_title("SHAP Feature Importance")
 
         ax.tick_params(colors="black")
-
         ax.xaxis.label.set_color("black")
         ax.title.set_color("black")
 
@@ -1668,34 +1429,23 @@ elif page == "SHAP Explainability":
             )
 
             fig = plt.gcf()
-
             fig.patch.set_facecolor("white")
 
             for ax in fig.axes:
 
                 ax.set_facecolor("white")
-
-                ax.tick_params(
-                    colors="black"
-                )
+                ax.tick_params(colors="black")
 
                 ax.xaxis.label.set_color("black")
                 ax.yaxis.label.set_color("black")
-
                 ax.title.set_color("black")
 
-            st.pyplot(
-                fig,
-                clear_figure=True
-            )
-
+            st.pyplot(fig, clear_figure=True)
             plt.close(fig)
 
         except Exception as e:
 
-            st.warning(
-                f"Summary plot unavailable: {e}"
-            )
+            st.warning(f"Summary plot unavailable: {e}")
 
         st.subheader("Feature Importance Table")
 
@@ -1720,11 +1470,7 @@ elif page == "Model Evaluation":
     st.title("Model Evaluation")
 
     if not st.session_state.trained:
-
-        st.warning(
-            "Train all models first."
-        )
-
+        st.warning("Train all models first.")
         st.stop()
 
     selected_name = st.selectbox(
@@ -1732,26 +1478,16 @@ elif page == "Model Evaluation":
         list(st.session_state.models.keys())
     )
 
-    model = st.session_state.models[
-        selected_name
-    ]
+    model = st.session_state.models[selected_name]
 
     X_test = st.session_state.X_test
     y_test = st.session_state.y_test
 
-    predictions = model.predict(
-        X_test
-    )
-
-    probabilities = get_probability(
-        model,
-        X_test
-    )
+    predictions = model.predict(X_test)
+    probabilities = get_probability(model, X_test)
 
     metrics = calculate_metrics(
-        model,
-        X_test,
-        y_test
+        model, X_test, y_test
     )
 
     st.subheader("Evaluation Metrics")
@@ -1772,15 +1508,11 @@ elif page == "Model Evaluation":
         value = metrics[name]
 
         display = (
-            "N/A"
-            if pd.isna(value)
+            "N/A" if pd.isna(value)
             else f"{value:.4f}"
         )
 
-        cols[i % 3].metric(
-            name,
-            display
-        )
+        cols[i % 3].metric(name, display)
 
     st.divider()
 
@@ -1794,10 +1526,7 @@ elif page == "Model Evaluation":
 
     fig, ax = plt.subplots(figsize=(5, 4))
 
-    ax.imshow(
-        cm,
-        cmap="Blues"
-    )
+    ax.imshow(cm, cmap="Blues")
 
     ax.set_xticks(
         [0, 1],
@@ -1846,17 +1575,12 @@ elif page == "Model Evaluation":
         y_test,
         predictions,
         labels=[0, 1],
-        target_names=[
-            "Healthy",
-            "Parkinson's"
-        ],
+        target_names=["Healthy", "Parkinson's"],
         output_dict=True,
         zero_division=0
     )
 
-    report_df = pd.DataFrame(
-        report
-    ).transpose()
+    report_df = pd.DataFrame(report).transpose()
 
     st.dataframe(
         report_df,
@@ -1891,14 +1615,8 @@ elif page == "Model Evaluation":
             linestyle="--"
         )
 
-        ax.set_xlabel(
-            "False Positive Rate"
-        )
-
-        ax.set_ylabel(
-            "True Positive Rate"
-        )
-
+        ax.set_xlabel("False Positive Rate")
+        ax.set_ylabel("True Positive Rate")
         ax.set_title("ROC Curve")
         ax.legend()
 
